@@ -1,0 +1,32 @@
+2026-08-14 10:58:23	Info	EdgeLog V1.0.0 2026/08/13
+2026-08-14 10:58:23	Info	Host ip: 180.3.5.29
+2026-08-14 10:58:24	Info	Edge Verion: ACS Edge Server API-3.4.0
+2026-08-14 10:58:24	Info	****** Fetech Containers Log ******
+container: py-app
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:135]  ============ ACS ONEAPI 3.3.0.rc2 ====================
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:35]  load configuration...
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:36]    [Configuration] ONEAPI_DEBUG                 : 6
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:200]    [Configuration] ONEAPI_LOCATION              : EDGE
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:201]    [Configuration] ONEAPI_CONTAINER_NAME        : py-app
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:202]    [Configuration] ONEAPI_DATA_PROTOCOL         : KAFKA
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:203]    [Configuration] ONEAPI_DATA_KAFKA_URL        : nexus-broker:19092
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:204]    [Configuration] ONEAPI_CONTROL_PROTOCOL      : ZMQ
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:205]    [Configuration] ONEAPI_CONTROL_ZMQ_IP        : 180.3.5.29
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:206]    [Configuration] ONEAPI_CONTROL_ZMQ_PORT      : 7001
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:207]    [Configuration] ONEAPI_TPSERVICE_PORT        : 21122
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:208]    [Configuration] ONEAPI_DFF_SCHEMA_TMPL_URL   : https://unifiedserver.local/subjects/<subject-name>/versions?normalize=true
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:209]    [Configuration] ONEAPI_DFF_WRITE_TOPIC       : dffCustomData
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:210]    [Configuration] ONEAPI_DFF_WRITE_RETRY       : 2
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:211]    [Configuration] ONEAPI_DFF_WRITE_BROKER_LIST : unifiedserver.local:29092,unifiedserver.local:39092,unifiedserver.local:49092
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:212]    [Configuration] ONEAPI_DFF_WRITE_TIMEOUT     : 300
+[2026-08-14 02:07:07,382]   [INFO]   [configuration.cpp:213]    [Configuration] ONEAPI_DFF_READ_BASE_URL     : https://unifiedserver.local/query/v1/jobs
+Library loaded!
+2026-08-14 02:07:07,709 - INFO - main.py(31): log level: INFO
+[2026-08-14 02:07:07,715]   [INFO]   [kafka_consume_session.cpp:42]  Connect to Event Port Success!
+[2026-08-14 02:07:07,716]   [INFO]   [kafka_consumer.cpp:78]  KafkaConsumer starts consuming messages...
+[2026-08-14 02:07:07,716]   [INFO]   [zmq_dealer_client.cpp:53]  DealerClient starts connection...
+[2026-08-14 02:07:07,716]   [INFO]   [zmq_command_session.cpp:29]  Connect to Commnad Port Success!
+2026-08-14 02:07:07,716 - INFO - main.py(53): Connection request initiated successfully.
+[2026-08-14 02:07:07,718]   [INFO]   [zmq_dealer_client.cpp:109]  Communication state changes: enable
+
+
