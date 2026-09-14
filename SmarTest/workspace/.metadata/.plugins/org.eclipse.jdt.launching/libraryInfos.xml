@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<libraryInfos>
+    <libraryInfo home="/usr/lib/jvm/java-17" version="17.0.6"/>
+    <libraryInfo home="/usr/lib/jvm/jdk-21_adoptium" version="21.0.2"/>
+</libraryInfos>

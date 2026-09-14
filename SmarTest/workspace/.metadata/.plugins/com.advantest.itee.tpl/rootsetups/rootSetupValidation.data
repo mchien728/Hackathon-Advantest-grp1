@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RootSetupValidationData>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/common/MainSpec.spec</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/common/SpecData.spec</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/BurstAll.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatARun.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatBRun.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatCRun.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatDRun.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatSeq1.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatSeq2.seq</ValidatedAsRootSetup>
+    <ValidatedAsRootSetup>platform:/resource/TestCase_Smt870/src/patterns/PatSet3.seq</ValidatedAsRootSetup>
+</RootSetupValidationData>
