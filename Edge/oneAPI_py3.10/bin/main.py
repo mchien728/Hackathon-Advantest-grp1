@@ -4,7 +4,7 @@
 #
 from oneapi import Interface
 from oneapi import AppInfo
-from sample import SampleMonitor
+from EnhancedMonitor import EnhancedMonitor
 # from sample import sendCommand
 import signal
 import sys
@@ -15,7 +15,7 @@ def quit(signum, frame):
     if res != 0:
         print(f"Disconnect fail. code = {res}")
     sys.exit()
-    
+
 # configure logging function, read level from environment variable
 def configure_logging()->None:
     log_level = os.environ.get('ACS_LOG_LEVEL', 'INFO')
@@ -29,18 +29,18 @@ def configure_logging()->None:
     else:
         logging.basicConfig(level=numeric_level, format='%(asctime)s - %(levelname)s - %(filename)s(%(lineno)d): %(message)s')
     logging.info("log level: %s", log_level)
-    
-    
-    
+
+
+
 def main():
     configure_logging()
-    myMonitor = SampleMonitor()
+    myMonitor = EnhancedMonitor()
     Interface.registerMonitor(myMonitor)
 
     me = AppInfo()
-    me.name = "sample" # Recommend using hostname (hostname = socket.gethostname())
+    me.name = "enhanced_monitor" # Recommend using hostname (hostname = socket.gethostname())
     me.vendor = "adv"
-    me.version = "1.0.0"
+    me.version = "1.0.1"
 
     NexusDataEnabled = True  # whether to enable Nexus Data Streaming and Control
     TPServiceEnabled = True  # whether to enable TPService for communication with NexusTPI
@@ -54,7 +54,7 @@ def main():
 
     signal.signal(signal.SIGINT, quit)
     signal.signal(signal.SIGTERM, quit)
-    
+
     while True:
         signal.pause()
 

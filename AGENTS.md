@@ -92,7 +92,7 @@ Before modifying any files or writing code:
    ```bash
    git checkout -b <ghuser>_<modelname>
    ```
-   *Example:* `git checkout -b feedc0de_gemini3flash`
+   *Example:* `git checkout -b katrina_qwen3coder`
 3. All code modifications **must** take place inside this feature branch.
 
 ---
@@ -120,9 +120,9 @@ After finishing a task or code iteration, the AI Agent **MUST** create a change 
 
 ### Step 4: Branch Cleanup & Code Review Notification
 Once code implementation and the `ai_notes/` entry are complete:
-1. Switch back to the original branch (e.g., `main`):
+1. Switch back to the original branch that the user was working on before starting this task:
    ```bash
-   git checkout main
+   git checkout <original_branch_name>
    ```
 2. Prompt the human developer (repo owner/master) in the chat response to perform a **Code Review** before merging `<ghuser>_<modelname>` into the primary branch.
 
