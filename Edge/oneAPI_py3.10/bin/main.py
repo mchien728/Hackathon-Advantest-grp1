@@ -34,6 +34,7 @@ def configure_logging()->None:
     
 def main():
     configure_logging()
+    # TODO(Phase 5): start the Flask dashboard in a background thread here, then expose its port via app_descriptor.json
     myMonitor = SampleMonitor()
     Interface.registerMonitor(myMonitor)
 

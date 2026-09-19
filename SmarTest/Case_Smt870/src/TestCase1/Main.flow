@@ -442,6 +442,7 @@ flow Main {
 //           Suite13.execute();
 //           Suite14.execute();
 //           IDDQ_flow.execute();
+// TODO(Phase 4): uncomment this predict/sensor/subflow loop once py-app's ActionManager write side (Phase 3) is live; start with one stage before enabling all six
 //           receive_temp_predict1.execute();
 //           sensor1.execute();
 //           subflow1.execute();

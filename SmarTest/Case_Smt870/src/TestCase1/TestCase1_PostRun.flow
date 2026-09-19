@@ -10,6 +10,7 @@ flow TestCase1_PostRun {
 
 
     execute {
+// TODO(Phase 4): uncomment to surface the ActionManager decision (set_message) to the operator
 //        if(testProgramVariables.getBooleanOrElse("pause_eot",false) == true)
 //        {
 //             displayAction.execute();
