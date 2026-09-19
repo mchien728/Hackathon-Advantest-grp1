@@ -116,10 +116,5 @@ def start_dashboard(host="0.0.0.0", port=5000):
         threaded=True
     )
 
-    # thread = threading.Thread(target=run, daemon=True)
-    # thread.start()
-
-    # return thread
-
 if __name__ == "__main__":
     start_dashboard()

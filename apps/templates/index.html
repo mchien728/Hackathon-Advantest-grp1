@@ -186,6 +186,22 @@
             height: 280px;
         }
 
+        .wafer-die {
+            transition:
+                opacity 0.2s ease,
+                filter 0.2s ease;
+        }
+
+        .wafer-die.highlight {
+            filter:
+                drop-shadow(0 0 4px rgba(59, 130, 246, 0.9))
+                drop-shadow(0 0 9px rgba(59, 130, 246, 0.7));
+        }
+
+        .wafer-die.dimmed {
+            opacity: 0.25;
+        }
+
         .empty-state {
             color: #888;
         }
@@ -573,6 +589,143 @@
 
             cursor: pointer;
         }
+
+        .touchdown-timeline {
+            margin-top: 20px;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            margin-bottom: 12px;
+
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .timeline-header span:first-child {
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .timeline-track {
+            display: flex;
+            align-items: center;
+            gap: 0;
+
+            width: 100%;
+            min-height: 38px;
+
+            overflow-x: auto;
+            padding: 6px 2px;
+        }
+
+        .timeline-empty {
+            color: #9ca3af;
+            font-size: 13px;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .timeline-dot {
+            width: 30px;
+            height: 30px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border: 2px solid #d1d5db;
+            border-radius: 50%;
+
+            background: white;
+            color: #6b7280;
+
+            font-size: 11px;
+            font-weight: bold;
+
+            cursor: pointer;
+        }
+
+        .timeline-dot:hover {
+            transform: none;
+        }
+
+        .timeline-line {
+            width: 16px;
+            height: 2px;
+            background: #d1d5db;
+        }
+
+        .timeline-dot.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #2563eb;
+            transform: none;
+        }
+
+        .site-selector {
+            margin-top: 18px;
+            margin-bottom: 18px;
+        }
+
+        .site-header {
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .site-list {
+            display: flex;
+            justify-content: center;
+            gap: 45px;
+        }
+
+        .site-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .probe-head {
+            width: 18px;
+            height: 8px;
+            background: #9ca3af;
+            border-radius: 3px 3px 1px 1px;
+        }
+
+        .probe-needle {
+            width: 2px;
+            height: 24px;
+            background: #6b7280;
+        }
+
+        .site-label {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .site-item.selected .probe-head {
+            background: #3b82f6;
+        }
+
+        .site-item.selected .probe-needle {
+            background: #3b82f6;
+        }
+
+        .site-item.selected .site-label {
+            color: #2563eb;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -641,7 +794,52 @@
                 <div class="panel-header">
                     <div>
                         <h2>Wafer Map</h2>
-                        <p>Where was the anomaly detected?</p>
+                    </div>
+                </div>
+
+                <div class="touchdown-timeline">
+                    <div class="timeline-header">
+                        <span>Test Progress</span>
+                        <span id="timeline-current">-</span>
+                    </div>
+
+                    <div id="timeline-track" class="timeline-track">
+                        <div class="timeline-empty">
+                            Waiting for test progress...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="site-selector">
+                    <div class="site-header">
+                        Test Sites
+                    </div>
+
+                    <div class="site-list">
+
+                        <div class="site-item" data-site="1">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 1</div>
+                        </div>
+
+                        <div class="site-item" data-site="2">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 2</div>
+                        </div>
+
+                        <div class="site-item" data-site="3">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 3</div>
+                        </div>
+
+                        <div class="site-item" data-site="4">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 4</div>
+                        </div>
                     </div>
                 </div>
 
@@ -664,8 +862,7 @@
 
                 <div class="panel-header">
                     <div>
-                        <h2>IC Temperature</h2>
-                        <p>Real-time temperature prediction</p>
+                        <h2>IC Temperature Prediction</h2>
                     </div>
                 </div>
 
@@ -837,25 +1034,238 @@
 
 <script>
 
+let hoveredTD = null;
+let selectedTD = null;
+
+let hoveredSite = null;
+let selectedSite = null;
+
 const waferLayout = [
-    [6,0], [9,4], [3,3], [3,5], [4,1],
-    [5,2], [5,4], [8,5], [1,5], [6,3],
-    [8,1], [4,5], [8,4], [11,4], [1,6],
-    [4,2], [10,3], [0,3], [11,3], [8,6],
-    [3,0], [6,7], [6,2], [5,8], [7,4],
-    [6,6], [1,3], [9,1], [6,5], [7,6],
-    [4,3], [8,7], [2,5], [10,5], [7,7],
-    [4,8], [3,7], [7,8], [9,5], [0,4],
-    [7,0], [8,0], [8,3], [9,6], [5,1],
-    [2,7], [2,1], [2,2], [10,2], [6,4],
-    [3,6], [5,3], [7,1], [3,2], [5,6],
-    [4,0], [7,5], [9,2], [2,4], [2,3],
-    [7,2], [2,6], [7,3], [1,4], [1,2],
-    [4,4], [5,0], [6,8], [9,3], [10,4],
-    [3,1], [10,6], [5,5], [3,4], [5,7],
-    [6,1], [8,2], [4,6], [9,7], [4,7]
+    [3,0], [4,0], [5,0], [6,0], [7,0], [8,0],
+
+    [2,1], [3,1], [4,1], [5,1],
+    [6,1], [7,1], [8,1], [9,1],
+
+    [1,2], [2,2], [3,2], [4,2], [5,2],
+    [6,2], [7,2], [8,2], [9,2], [10,2],
+
+    [0,3], [1,3], [2,3], [3,3], [4,3], [5,3],
+    [6,3], [7,3], [8,3], [9,3], [10,3], [11,3],
+
+    [0,4], [1,4], [2,4], [3,4], [4,4], [5,4],
+    [6,4], [7,4], [8,4], [9,4], [10,4], [11,4],
+
+    [1,5], [2,5], [3,5], [4,5], [5,5],
+    [6,5], [7,5], [8,5], [9,5], [10,5],
+
+    [1,6], [2,6], [3,6], [4,6], [5,6],
+    [6,6], [7,6], [8,6], [9,6], [10,6],
+
+    [2,7], [3,7], [4,7], [5,7],
+    [6,7], [7,7], [8,7], [9,7],
+
+    [4,8], [5,8], [6,8], [7,8]
 ];
 
+function updateWaferHighlight() {
+
+    const activeTD =
+        selectedTD !== null
+            ? selectedTD
+            : hoveredTD;
+
+    const activeSite =
+        selectedSite !== null
+            ? selectedSite
+            : hoveredSite;
+
+    const dies =
+        document.querySelectorAll('.wafer-die');
+
+    dies.forEach(die => {
+
+        const dieTD =
+            die.dataset.td === ''
+                ? null
+                : Number(die.dataset.td);
+
+        const dieSite =
+            die.dataset.site === ''
+                ? null
+                : Number(die.dataset.site);
+
+        // 沒有選 TD，也沒有選 Site
+        if (
+            activeTD === null &&
+            activeSite === null
+        ) {
+            die.classList.remove('highlight');
+            die.classList.remove('dimmed');
+            return;
+        }
+
+        // 有 TD 條件時，要符合 TD
+        const matchesTD =
+            activeTD === null ||
+            dieTD === activeTD;
+
+        // 有 Site 條件時，要符合 Site
+        const matchesSite =
+            activeSite === null ||
+            dieSite === activeSite;
+
+        if (matchesTD && matchesSite) {
+            die.classList.add('highlight');
+            die.classList.remove('dimmed');
+        } else {
+            die.classList.remove('highlight');
+            die.classList.add('dimmed');
+        }
+    });
+}
+
+
+function updateTimelineSelection() {
+
+    document
+        .querySelectorAll('.timeline-dot')
+        .forEach(dot => {
+
+            const td =
+                Number(dot.dataset.td);
+
+            dot.classList.toggle(
+                'selected',
+                selectedTD === td
+            );
+        });
+}
+
+function renderTimeline(waferMap, currentTD) {
+
+    const track =
+        document.getElementById('timeline-track');
+
+    const currentLabel =
+        document.getElementById('timeline-current');
+
+    if (
+        !waferMap ||
+        !waferMap.rows ||
+        waferMap.rows.length === 0
+    ) {
+        track.innerHTML =
+            '<div class="timeline-empty">Waiting for test progress...</div>';
+
+        currentLabel.textContent = '-';
+        return;
+    }
+
+    const columns = waferMap.columns || [];
+    const tdIndex = columns.indexOf('td');
+
+    if (tdIndex === -1) {
+        return;
+    }
+
+    const touchdowns = [
+        ...new Set(
+            waferMap.rows
+                .map(row => row[tdIndex])
+                .filter(td => td != null)
+        )
+    ].sort((a, b) => a - b);
+
+    currentLabel.textContent =
+        currentTD != null
+            ? `Current: TD ${currentTD}`
+            : '-';
+
+    track.innerHTML = '';
+
+    touchdowns.forEach((td, index) => {
+
+        const item =
+            document.createElement('div');
+
+        item.className = 'timeline-item';
+
+        const dot =
+            document.createElement('div');
+
+        dot.className = 'timeline-dot';
+        dot.dataset.td = td;
+        dot.textContent = td;
+
+        dot.addEventListener('mouseenter', () => {
+
+            if (selectedTD !== null) {
+                return;
+            }
+
+            hoveredTD = td;
+
+            updateWaferHighlight();
+        });
+
+
+        dot.addEventListener('mouseleave', () => {
+
+            if (selectedTD !== null) {
+                return;
+            }
+
+            hoveredTD = null;
+
+            updateWaferHighlight();
+        });
+
+        dot.addEventListener('click', () => {
+
+            hoveredTD = null;
+
+            if (selectedTD === td) {
+                selectedTD = null;
+            } else {
+                selectedTD = td;
+            }
+
+            updateTimelineSelection();
+            updateWaferHighlight();
+        });
+
+        item.appendChild(dot);
+
+        if (index < touchdowns.length - 1) {
+
+            const line =
+                document.createElement('div');
+
+            line.className = 'timeline-line';
+
+            item.appendChild(line);
+        }
+
+        track.appendChild(item);
+    });
+    updateTimelineSelection();
+}
+
+function updateSiteSelection() {
+
+    document
+        .querySelectorAll('.site-item')
+        .forEach(item => {
+
+            const site =
+                Number(item.dataset.site);
+
+            item.classList.toggle(
+                'selected',
+                selectedSite === site
+            );
+        });
+}
 
 function renderWaferMap(waferMap) {
 
@@ -1018,6 +1428,9 @@ function renderWaferMap(waferMap) {
 
         svg += `
             <rect
+                class="wafer-die"
+                data-td="${die.td ?? ''}"
+                data-site="${die.site ?? ''}"
                 x="${x}"
                 y="${y}"
                 width="${cellSize}"
@@ -1033,6 +1446,7 @@ function renderWaferMap(waferMap) {
     svg += '</svg>';
 
     container.innerHTML = svg;
+    updateWaferHighlight();
 }
 
 
@@ -1198,6 +1612,10 @@ async function updateDashboard() {
         }
 
 
+        renderTimeline(
+            state.wafer_map,
+            state.touchdown
+        );
         renderWaferMap(state.wafer_map);
 
 
@@ -1368,6 +1786,51 @@ document
 
         });
 
+    });
+
+document
+    .querySelectorAll('.site-item')
+    .forEach(item => {
+
+        const site = Number(item.dataset.site);
+
+        item.addEventListener('mouseenter', () => {
+
+            // 已經固定 Site 時，不接受 hover
+            if (selectedSite !== null) {
+                return;
+            }
+
+            hoveredSite = site;
+            updateWaferHighlight();
+        });
+
+        item.addEventListener('mouseleave', () => {
+
+            // 已經固定 Site 時，不接受 hover
+            if (selectedSite !== null) {
+                return;
+            }
+
+            hoveredSite = null;
+            updateWaferHighlight();
+        });
+
+        item.addEventListener('click', () => {
+
+            hoveredSite = null;
+
+            if (selectedSite === site) {
+                // 再點一次目前 Site → 取消
+                selectedSite = null;
+            } else {
+                // 固定新的 Site
+                selectedSite = site;
+            }
+
+            updateSiteSelection();
+            updateWaferHighlight();
+        });
     });
 
 updateDashboard();
