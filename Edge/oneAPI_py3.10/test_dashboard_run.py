@@ -192,11 +192,6 @@ def fake_get_state():
         ],
 
 
-        "totals": {
-            "touchdowns": 20,
-            "anomaly_touchdowns": 1
-        },
-
         "wafer_map": {
             "wafer": "W01",
             "columns": [
