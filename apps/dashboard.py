@@ -9,6 +9,12 @@ from send_mail import send_dashboard_email
 state_data = {}
 last_error_type = None
 user_email = None
+<<<<<<< HEAD
+=======
+
+def get_state():
+    return state_data
+>>>>>>> fdaa46f (Update dashboard frontend)
 
 def create_app():
     app = Flask(__name__)
@@ -46,6 +52,22 @@ def create_app():
         else:
             return state_data, 200
 
+    @app.route("/api/email", methods=["GET", "POST"])
+    def api_email():
+        global user_email
+
+        if request.method == "POST":
+            data = request.get_json(silent=True) or {}
+            user_email = str(data.get("email", "")).strip()
+
+            return jsonify({
+                "email": user_email
+            }), 200
+
+        return jsonify({
+            "email": user_email or ""
+        }), 200
+
     @app.route("/api/chat", methods=["POST"])
     def api_chat():
         try:
@@ -73,7 +95,7 @@ def create_app():
                 "indicators": state.get("indicators"),
             }
 
-            with open('file.txt', 'r', encoding='utf-8') as f:
+            with open('prompt.txt', 'r', encoding='utf-8') as f:
                 prompt = f.read()
                 completion = client.chat.completions.create(
                     model="openrouter/free",

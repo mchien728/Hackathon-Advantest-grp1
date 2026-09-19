@@ -185,4 +185,8 @@ if __name__ == "__main__":
     # 再真的寄信
     # =========================
 
+<<<<<<< HEAD
     send_dashboard_email(test_state, "zhixuan900422@gmail.com")
+=======
+    send_dashboard_email(test_state, "zhixuan900422@gmail.com")
+>>>>>>> fdaa46f (Update dashboard frontend)

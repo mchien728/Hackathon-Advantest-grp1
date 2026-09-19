@@ -1,8 +1,9 @@
 let hoveredTD = null;
 let selectedTD = null;
-
 let hoveredSite = null;
 let selectedSite = null;
+let selectedWafer = null;
+let latestLiveState = null;
 
 const waferLayout = [
     [3,0], [4,0], [5,0], [6,0], [7,0], [8,0],
@@ -105,94 +106,86 @@ function updateTimelineSelection() {
         });
 }
 
-function renderTimeline(waferMap, currentTD) {
+function renderTimeline(waferMap, currentTD, indicators) {
+    const track = document.getElementById('timeline-track');
+    const currentLabel = document.getElementById('timeline-current');
 
-    const track =
-        document.getElementById('timeline-track');
-
-    const currentLabel =
-        document.getElementById('timeline-current');
-
-    if (
-        !waferMap ||
-        !waferMap.rows ||
-        waferMap.rows.length === 0
-    ) {
-        track.innerHTML =
-            '<div class="timeline-empty">Waiting for test progress...</div>';
-
+    if (!waferMap || !waferMap.rows) {
+        track.innerHTML = '<div class="timeline-empty">Waiting for test progress...</div>';
         currentLabel.textContent = '-';
         return;
     }
 
-    const columns = waferMap.columns || [];
-    const tdIndex = columns.indexOf('td');
-
-    if (tdIndex === -1) {
-        return;
-    }
-
-    const touchdowns = [
-        ...new Set(
-            waferMap.rows
-                .map(row => row[tdIndex])
-                .filter(td => td != null)
-        )
-    ].sort((a, b) => a - b);
-
-    currentLabel.textContent =
-        currentTD != null
-            ? `Current: TD ${currentTD}`
-            : '-';
-
+    currentLabel.textContent = currentTD != null ? `Current: TD ${currentTD}` : '-';
     track.innerHTML = '';
 
-    touchdowns.forEach((td, index) => {
-
-        const item =
-            document.createElement('div');
-
+    for (let td = 1; td <= 20; td++) {
+        const item = document.createElement('div');
         item.className = 'timeline-item';
 
-        const dot =
-            document.createElement('div');
-
+        const dot = document.createElement('div');
         dot.className = 'timeline-dot';
+
+        const tdRows = waferMap.rows.filter(row => row[0] === td);
+
+        if (tdRows.length > 0) {
+            const hasFailed = tdRows.some(row => row[5] === false);
+            const hasSuspect = tdRows.some(row => row[6] === true);
+
+            if (hasFailed) dot.classList.add('status-failed');
+            else if (hasSuspect) dot.classList.add('status-suspect');
+            else dot.classList.add('status-passed');
+        }
+        if (tdRows.length > 0) {
+            const hasFailed = tdRows.some(row => row[5] === false);
+            const hasSuspect = tdRows.some(row => row[6] === true);
+
+            let tooltip = `TD ${td}`;
+
+            if (hasFailed) tooltip += '\nStatus: Failed';
+            else if (hasSuspect) tooltip += '\nStatus: Suspect';
+            else tooltip += '\nStatus: Passed';
+
+            if (hasFailed || hasSuspect) {
+                const tdReasons = (indicators || []).filter(indicator =>
+                    indicator.triggered &&
+                    indicator.detail?.onset_td != null &&
+                    td >= indicator.detail.onset_td
+                );
+
+                if (tdReasons.length > 0) {
+                    tooltip += '\nPossible cause: ' + tdReasons.map(item => item.name).join(', ');
+                }
+            }
+
+            dot.title = tooltip;
+        }
         dot.dataset.td = td;
         dot.textContent = td;
 
-        dot.addEventListener('mouseenter', () => {
+        if (currentTD != null && td > currentTD) {
+            dot.classList.add('future');
+        }
 
-            if (selectedTD !== null) {
-                return;
-            }
+        dot.addEventListener('mouseenter', () => {
+            if (selectedTD !== null || td > currentTD) return;
 
             hoveredTD = td;
-
             updateWaferHighlight();
         });
 
-
         dot.addEventListener('mouseleave', () => {
-
-            if (selectedTD !== null) {
-                return;
-            }
+            if (selectedTD !== null || td > currentTD) return;
 
             hoveredTD = null;
-
             updateWaferHighlight();
         });
 
         dot.addEventListener('click', () => {
+            if (td > currentTD) return;
 
             hoveredTD = null;
-
-            if (selectedTD === td) {
-                selectedTD = null;
-            } else {
-                selectedTD = td;
-            }
+            selectedTD = selectedTD === td ? null : td;
 
             updateTimelineSelection();
             updateWaferHighlight();
@@ -200,18 +193,20 @@ function renderTimeline(waferMap, currentTD) {
 
         item.appendChild(dot);
 
-        if (index < touchdowns.length - 1) {
-
-            const line =
-                document.createElement('div');
-
+        if (td < 20) {
+            const line = document.createElement('div');
             line.className = 'timeline-line';
+
+            if (currentTD != null && td >= currentTD) {
+                line.classList.add('future');
+            }
 
             item.appendChild(line);
         }
 
         track.appendChild(item);
-    });
+    }
+
     updateTimelineSelection();
 }
 
@@ -412,354 +407,790 @@ function renderWaferMap(waferMap) {
     updateWaferHighlight();
 }
 
-function renderCriteria(criteria) {
-    if (!criteria || criteria.length === 0) {
+function renderSiteOverview(waferMap) {
+    const rows = waferMap?.rows || [];
+    const columns = waferMap?.columns || [];
+
+    const siteIndex = columns.indexOf('site');
+    const passedIndex = columns.indexOf('passed');
+    const suspectIndex = columns.indexOf('suspect');
+
+    if (siteIndex === -1 || passedIndex === -1 || suspectIndex === -1) return;
+
+    for (let site = 1; site <= 4; site++) {
+        const card = document.getElementById('site-' + site);
+        if (!card) continue;
+
+        const siteItem = document.querySelector(`.site-item[data-site="${site}"]`);
+        const siteRows = rows.filter(row => row[siteIndex] === site);
+        const failedCount = siteRows.filter(row => !row[passedIndex]).length;
+        const suspectCount = siteRows.filter(row => row[suspectIndex]).length;
+        
+        if (siteItem) {
+            siteItem.classList.remove('status-passed', 'status-suspect', 'status-failed');
+
+            if (failedCount > 0) {
+                siteItem.classList.add('status-failed');
+            } else if (suspectCount > 0) {
+                siteItem.classList.add('status-suspect');
+            } else if (siteRows.length > 0) {
+                siteItem.classList.add('status-passed');
+            }
+
+            let siteTooltip = `Site ${site}`;
+
+            if (failedCount > 0) {
+                siteTooltip += `\nStatus: Failed (${failedCount})`;
+            } else if (suspectCount > 0) {
+                siteTooltip += `\nStatus: Suspect (${suspectCount})`;
+            } else if (siteRows.length > 0) {
+                siteTooltip += '\nStatus: Passed';
+            } else {
+                siteTooltip += '\nStatus: Not Tested';
+            }
+
+            siteItem.title = siteTooltip;
+        }
+        let tooltip = `Site ${site}`;
+
+        if (failedCount > 0) tooltip += `\nStatus: Failed (${failedCount})`;
+        else if (suspectCount > 0) tooltip += `\nStatus: Suspect (${suspectCount})`;
+        else if (siteRows.length > 0) tooltip += '\nStatus: Passed';
+        else tooltip += '\nStatus: Not Tested';
+
+        card.title = tooltip;
+
+        const status = card.querySelector('.site-status');
+
+        card.classList.remove('alert');
+
+        if (failedCount > 0) {
+            card.classList.add('alert');
+            card.style.backgroundColor = '#fee2e2';
+            card.style.borderColor = '#fca5a5';
+            status.textContent = `${failedCount} Failed`;
+        } else if (suspectCount > 0) {
+            card.classList.add('alert');
+            card.style.backgroundColor = '#fef3c7';
+            card.style.borderColor = '#fcd34d';
+            status.textContent = `${suspectCount} Suspect`;
+        } else if (siteRows.length > 0) {
+            card.style.backgroundColor = '#dcfce7';
+            card.style.borderColor = '#86efac';
+            status.textContent = 'Normal';
+        } else {
+            card.style.backgroundColor = '';
+            card.style.borderColor = '';
+            status.textContent = 'Not Tested';
+        }
+    }
+
+    updateSiteSelection();
+}
+
+function renderWaferOverview(state) {
+    const list = document.getElementById('wafer-overview-list');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    const wafers = state?.wafers || [];
+
+    if (wafers.length === 0) {
+        list.innerHTML =
+            '<div class="wafer-overview-empty">No wafer data available.</div>';
         return;
     }
+
+    wafers.forEach(wafer => {
+        const row = document.createElement('div');
+        row.className = 'wafer-overview-row clickable';
+
+        const displayLabel =
+            wafer.headline ??
+            wafer.label ??
+            'Normal';
+
+        const isNormal =
+            displayLabel === 'Normal';
+
+        const yieldCriterion =
+            wafer.criteria?.find(item => item.key === 'yield');
+
+        const isLowYield =
+            yieldCriterion?.triggered === true;
+
+        const yieldValue =
+            wafer.yield != null
+                ? `${(wafer.yield * 100).toFixed(1)}%`
+                : '-';
+
+        const onset =
+            wafer.onset_td != null
+                ? `TD ${wafer.onset_td}`
+                : '-';
+
+        const statusClass = wafer.current
+            ? 'testing'
+            : isNormal
+                ? 'normal'
+                : 'anomaly';
+
+        const statusText = wafer.current
+            ? 'Testing'
+            : isNormal
+                ? 'Normal'
+                : 'Anomaly';
+
+        row.addEventListener('click', () => {
+            openWaferDetail(wafer);
+        });
+
+        row.innerHTML = `
+            <div class="wafer-overview-name">${wafer.wafer}</div>
+
+            <div>
+                <span class="wafer-status ${statusClass}">
+                    ${statusText}
+                </span>
+            </div>
+
+            <div class="wafer-detection ${!isNormal ? 'anomaly' : ''}">
+                ${displayLabel}
+            </div>
+
+            <div class="wafer-yield ${isLowYield ? 'low' : ''}">
+                ${yieldValue}
+            </div>
+
+            <div>${onset}</div>
+        `;
+
+        list.appendChild(row);
+    });
+}
+
+async function openWaferDetail(wafer) {
+    selectedWafer = wafer.id;
+
+    let state;
+
+    if (wafer.current) {
+        state = latestLiveState;
+    } else {
+        try {
+            const response = await fetch(
+                `/api/wafer/${encodeURIComponent(wafer.id)}`
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to load wafer details');
+            }
+
+            state = await response.json();
+
+        } catch (error) {
+            document.getElementById('error').textContent =
+                'Unable to load wafer details: ' + error.message;
+            return;
+        }
+    }
+
+    document.getElementById('overview-view').style.display = 'none';
+    document.getElementById('detail-view').style.display = 'block';
+
+    const indicator =
+        document.getElementById('viewing-indicator');
+
+    if (indicator) {
+        indicator.textContent =
+            wafer.current
+                ? `Viewing Live Wafer: ${wafer.wafer}`
+                : `Viewing Saved Wafer: ${wafer.wafer}`;
+    }
+
+    renderDashboardState(state);
+}
+
+function backToOverview() {
+    selectedWafer = null;
+
+    document.getElementById('detail-view').style.display = 'none';
+    document.getElementById('overview-view').style.display = 'block';
+
+    if (latestLiveState) {
+        renderWaferOverview(latestLiveState);
+    }
+}
+
+function renderCriteria(criteria) {
+    if (!criteria || criteria.length === 0) return;
+
     const config = {
         mean_trend: {
             valueId: 'criteria-mean-value',
             thresholdId: 'criteria-mean-threshold',
             barId: 'criteria-mean-bar',
-            overId: 'criteria-mean-over',
-            unit: 'tests'
+            overId: 'criteria-mean-over'
         },
         site_unbalance: {
             valueId: 'criteria-site-value',
             thresholdId: 'criteria-site-threshold',
             barId: 'criteria-site-bar',
-            overId: 'criteria-site-over',
-            unit: 'tests'
+            overId: 'criteria-site-over'
         },
         stdev_up: {
             valueId: 'criteria-stdev-value',
             thresholdId: 'criteria-stdev-threshold',
             barId: 'criteria-stdev-bar',
-            overId: 'criteria-stdev-over',
-            unit: 'tests'
+            overId: 'criteria-stdev-over'
         },
         yield: {
             valueId: 'criteria-yield-value',
             thresholdId: 'criteria-yield-threshold',
             barId: 'criteria-yield-bar',
-            overId: 'criteria-yield-over',
-            unit: '%'
+            overId: 'criteria-yield-over'
         }
     };
+
     criteria.forEach(item => {
         const setting = config[item.key];
-        if (!setting) {
+        if (!setting) return;
+
+        const valueElement = document.getElementById(setting.valueId);
+        const thresholdElement = document.getElementById(setting.thresholdId);
+        const leftArea = document.getElementById(setting.barId);
+        const rightArea = document.getElementById(setting.overId);
+
+        if (!valueElement || !thresholdElement || !leftArea || !rightArea) return;
+
+
+        if (item.key === 'yield' && item.enough_data === false) {
+            valueElement.textContent = '樣本不足';
+            thresholdElement.textContent = '-';
+
+            leftArea.style.width = '100%';
+            leftArea.style.background = '#f3f4f6';
+            rightArea.style.width = '0%';
+
+            const bar = leftArea.parentElement;
+            const thresholdLine = bar.querySelector('.criteria-threshold-line');
+            if (thresholdLine) thresholdLine.style.display = 'none';
+
+            const marker = bar.querySelector('.criteria-current-marker');
+            if (marker) marker.style.display = 'none';
+
             return;
         }
-        const valueElement =
-            document.getElementById(setting.valueId);
-        const thresholdElement =
-            document.getElementById(setting.thresholdId);
-        const barElement =
-            document.getElementById(setting.barId);
-        const overElement =
-            document.getElementById(setting.overId);
-        if (
-            !valueElement ||
-            !thresholdElement ||
-            !barElement
-        ) {
-            return;
-        }
-        // ----- Display value -----
+
+        const bar = leftArea.parentElement;
+        const thresholdLine = bar.querySelector('.criteria-threshold-line');
+        if (thresholdLine) thresholdLine.style.display = '';
+
+        const oldMarker = bar.querySelector('.criteria-current-marker');
+        if (oldMarker) oldMarker.style.display = '';
+                
+
+        // Display values
         if (item.key === 'yield') {
-            valueElement.textContent =
-                item.value != null
-                    ? `${(item.value * 100).toFixed(1)}%`
-                    : '-';
-            thresholdElement.textContent =
-                item.threshold != null
-                    ? `${(item.threshold * 100).toFixed(0)}%`
-                    : '-';
+            valueElement.textContent = item.value != null ? `${(item.value * 100).toFixed(1)}%` : '-';
+            thresholdElement.textContent = item.threshold != null ? `${(item.threshold * 100).toFixed(0)}%` : '-';
         } else {
-            valueElement.textContent =
-                item.value != null
-                    ? `${item.value} tests`
-                    : '-';
-            thresholdElement.textContent =
-                item.threshold != null
-                    ? item.threshold
-                    : '-';
+            valueElement.textContent = item.value != null ? `${item.value} tests` : '-';
+            thresholdElement.textContent = item.threshold != null ? item.threshold : '-';
         }
-        // ----- Progress bar -----
-        if (
-            item.value == null ||
-            item.threshold == null ||
-            item.threshold === 0
-        ) {
-            barElement.style.width = '0%';
-            return;
-        }
-        // How much space represents the threshold.
-        // If value exceeds threshold, leave room to show the excess.
-        let maxValue = Math.max(
-            item.threshold,
-            item.value
-        );
-        // Add some space after the current value
-        if (item.value > item.threshold) {
-            maxValue = item.value * 1.15;
-        }
-        const thresholdPosition =
-            (item.threshold / maxValue) * 100;
-        const valuePosition =
-            (item.value / maxValue) * 100;
-        // Gray part: from 0 to threshold/current value
-        barElement.style.width =
-            `${Math.min(valuePosition, thresholdPosition)}%`;
-        // Threshold line
-        const thresholdLine =
-            barElement.parentElement.querySelector(
-                '.criteria-threshold-line'
-            );
-        thresholdLine.style.left =
-            `${thresholdPosition}%`;
-        // Red excess part
-        if (
-            item.trigger_when === 'at_least' &&
-            item.value >= item.threshold
-        ) {
-            overElement.style.left =
-                `${thresholdPosition}%`;
-            overElement.style.width =
-                `${valuePosition - thresholdPosition}%`;
+
+        if (item.value == null || item.threshold == null) return;
+
+        // Calculate scale
+        let valuePosition;
+        let thresholdPosition;
+
+        if (item.key === 'yield') {
+            valuePosition = item.value * 100;
+            thresholdPosition = item.threshold * 100;
         } else {
-            overElement.style.width = '0%';
+            const maxValue = Math.max(item.value * 1.1, item.threshold / 0.8);
+            valuePosition = (item.value / maxValue) * 100;
+            thresholdPosition = (item.threshold / maxValue) * 100;
         }
-        // ----- State -----
-        barElement.classList.remove(
-            'triggered',
-            'normal',
-            'insufficient'
-        );
-        if (
-            item.key === 'yield' &&
-            item.enough_data === false
-        ) {
-            barElement.classList.add('insufficient');
-        } else if (item.triggered) {
-            barElement.classList.add('triggered');
+
+        valuePosition = Math.max(0, Math.min(valuePosition, 100));
+        if (item.key === 'yield') {
+            thresholdPosition = Math.max(0, Math.min(thresholdPosition, 100));
         } else {
-            barElement.classList.add('normal');
+            thresholdPosition = Math.max(0, Math.min(thresholdPosition, 80));
         }
+
+        // Good / bad background
+        leftArea.style.width = `${thresholdPosition}%`;
+        rightArea.style.left = `${thresholdPosition}%`;
+        rightArea.style.width = `${100 - thresholdPosition}%`;
+
+        if (item.key === 'yield') {
+            leftArea.style.background = '#fee2e2';
+            rightArea.style.background = '#dcfce7';
+        } else {
+            leftArea.style.background = '#dcfce7';
+            rightArea.style.background = '#fee2e2';
+        }
+
+        // Threshold
+        thresholdLine.style.left = `${thresholdPosition}%`;
+
+        // Current value
+        let marker = bar.querySelector('.criteria-current-marker');
+
+        if (!marker) {
+            marker = document.createElement('div');
+            marker.className = 'criteria-current-marker';
+            bar.appendChild(marker);
+        }
+
+        marker.style.left = `${valuePosition}%`;
     });
 }
+
+function renderTDSiteHeatmap(waferMap) {
+    const heatmap = document.getElementById('td-site-heatmap');
+    if (!heatmap) return;
+
+    heatmap.innerHTML = '';
+
+    const corner = document.createElement('div');
+    heatmap.appendChild(corner);
+
+    for (let site = 1; site <= 4; site++) {
+        const label = document.createElement('div');
+        label.className = 'heatmap-label';
+        label.textContent = `Site ${site}`;
+        heatmap.appendChild(label);
+    }
+
+    const rows = waferMap?.rows || [];
+    const maxTD = rows.length > 0 ? Math.max(...rows.map(row => row[0])) : 0;
+
+    for (let td = 1; td <= maxTD; td++) {
+        const tdLabel = document.createElement('div');
+        tdLabel.className = 'heatmap-label';
+        tdLabel.textContent = `TD ${td}`;
+        heatmap.appendChild(tdLabel);
+
+        for (let site = 1; site <= 4; site++) {
+            const cell = document.createElement('div');
+            cell.className = 'heatmap-cell';
+
+            const die = rows.find(row => row[0] === td && row[1] === site);
+
+            if (die) {
+                const passed = die[5];
+                const suspect = die[6];
+
+                if (suspect) {
+                    cell.classList.add('suspect');
+                } else if (!passed) {
+                    cell.classList.add('failed');
+                } else {
+                    cell.classList.add('passed');
+                }
+            }
+
+            cell.dataset.td = td;
+            cell.dataset.site = site;
+            heatmap.appendChild(cell);
+        }
+    }
+}
+
 
 async function updateDashboard() {
     try {
         const response = await fetch('/api/state');
+
         if (!response.ok) {
-            throw new Error('Failed to load dashboard state');
-        }
-        const state = await response.json();
-
-        const currentWafer =
-            state.wafers?.find(
-                wafer => wafer.current === true
+            throw new Error(
+                'Failed to load dashboard state'
             );
-
-        if (currentWafer) {
-            renderCriteria(currentWafer.criteria);
         }
 
-        document.getElementById('lot').textContent =
-            state.lot ?? '-';
+        const liveState = await response.json();
 
-        document.getElementById('wafer').textContent =
-            state.wafer ?? '-';
+        latestLiveState = liveState;
 
-        document.getElementById('touchdown').textContent =
-            state.touchdown ?? 0;
+        renderWaferOverview(liveState);
 
+        const detailView =
+            document.getElementById('detail-view');
 
-        const triggeredCriteria =
-            (state.indicators || [])
-                .filter(item => item.triggered);
+        const detailIsOpen =
+            detailView?.style.display !== 'none';
 
+        if (detailIsOpen && selectedWafer) {
 
-        const overallStatus =
-            document.getElementById('overall-status');
+            const liveWafer =
+                (liveState.wafers || [])
+                    .find(wafer =>
+                        wafer.id === selectedWafer &&
+                        wafer.current
+                    );
 
-        const statusIcon =
-            document.getElementById('status-icon');
-
-        const statusTitle =
-            document.getElementById('status-title');
-
-        const statusDescription =
-            document.getElementById('status-description');
-
-
-        const anomalyLabel = state.label;
-
-        const hasAnomaly =
-            anomalyLabel &&
-            anomalyLabel.toLowerCase() !== 'normal';
-
-        if (hasAnomaly) {
-
-            overallStatus.classList.add('anomaly');
-
-            statusIcon.textContent = '!';
-            statusTitle.textContent = 'Attention Needed';
-
-            statusDescription.textContent =
-                `${anomalyLabel} detected on this wafer.`;
-
-        } else {
-
-            overallStatus.classList.remove('anomaly');
-
-            statusIcon.textContent = '✓';
-            statusTitle.textContent = 'No Anomalies Detected';
-
-            statusDescription.textContent =
-                'No anomalies have been detected on this wafer.';
-        }
-
-
-        const reportNormal =
-            document.getElementById('report-normal');
-
-        const reportAnomaly =
-            document.getElementById('report-anomaly');
-
-        const reportTitle =
-            document.getElementById('report-title');
-
-        const reportDescription =
-            document.getElementById('report-description');
-
-
-       if (hasAnomaly) {
-
-            reportNormal.style.display = 'none';
-            reportAnomaly.style.display = 'flex';
-
-            reportTitle.textContent =
-                anomalyLabel;
-
-            reportDescription.textContent =
-                'The detector identified an abnormal production pattern.';
-
-
-            const onsetValues =
-                triggeredCriteria
-                    .map(item => item.detail?.onset_td)
-                    .filter(value => value != null);
-
-            const firstOnset =
-                onsetValues.length > 0
-                    ? Math.min(...onsetValues)
-                    : null;
-
-
-            document.getElementById('affected-sites').textContent =
-                firstOnset != null
-                    ? `Detected from Touchdown ${firstOnset}`
-                    : 'Detected anomaly';
-
-
-            document.getElementById('detail-touchdown').textContent =
-                firstOnset ?? '-';
-
-            document.getElementById('detail-alert-count').textContent =
-                triggeredCriteria.length;
-
-
-            const alertList =
-                document.getElementById('alert-list');
-
-            alertList.innerHTML = '';
-
-
-            triggeredCriteria.forEach(item => {
-
-                const card =
-                    document.createElement('div');
-
-                card.className = 'alert-detail-card';
-
-                const direction =
-                    item.detail?.direction ?? '-';
-
-                const group =
-                    item.detail?.group ?? '-';
-
-                const onset =
-                    item.detail?.onset_td ?? '-';
-
-                card.innerHTML = `
-                    <div class="alert-detail-header">
-                        <strong>${item.name}</strong>
-                    </div>
-
-                    <div class="alert-detail-meta">
-                        <span>Value: ${item.value ?? '-'}</span>
-                        <span>Threshold: ${item.threshold ?? '-'}</span>
-                        <span>Direction: ${direction}</span>
-                        <span>Group: ${group}</span>
-                        <span>Onset: TD ${onset}</span>
-                    </div>
-                `;
-
-                alertList.appendChild(card);
-            });
-
-        } else {
-
-            reportNormal.style.display = 'block';
-            reportAnomaly.style.display = 'none';
-        }
-
-
-        renderTimeline(
-            state.wafer_map,
-            state.touchdown
-        );
-        renderWaferMap(state.wafer_map);
-
-
-        // Reset all sites to normal
-        for (let site = 1; site <= 4; site++) {
-            const card = document.getElementById('site-' + site);
-
-            card.classList.remove('alert');
-            card.querySelector('.site-status').textContent = 'Normal';
-        }
-
-
-        const warningBox =
-            document.getElementById('warning');
-
-        const loadError = state.error;
-
-        if (loadError) {
-
-            warningBox.style.display = 'block';
-
-            warningBox.textContent =
-                'Detector Warning: ' + loadError;
-
-        } else {
-
-            warningBox.style.display = 'none';
+            if (liveWafer) {
+                renderDashboardState(liveState);
+            }
 
         }
-
 
         document.getElementById('error').textContent = '';
 
     } catch (error) {
-
         document.getElementById('error').textContent =
-            'Dashboard update failed: ' + error.message;
+            'Dashboard update failed: ' +
+            error.message;
+    }
+}
 
+function renderPrediction(predictions, predictorError) {
+
+    const valueElement =
+        document.getElementById('temperature-value');
+
+    const statusElement =
+        document.getElementById('temperature-status');
+
+    const siteElements = {
+        1: document.getElementById('temperature-site-1'),
+        2: document.getElementById('temperature-site-2'),
+        3: document.getElementById('temperature-site-3'),
+        4: document.getElementById('temperature-site-4')
+    };
+
+
+    function resetSites() {
+        for (let site = 1; site <= 4; site++) {
+            if (siteElements[site]) {
+                siteElements[site].textContent = '-- °C';
+            }
+        }
+    }
+
+
+    if (!valueElement || !statusElement) {
+        return;
+    }
+
+
+    if (predictorError) {
+
+        valueElement.textContent = '-- °C';
+
+        resetSites();
+
+        statusElement.textContent =
+            `Prediction error: ${predictorError}`;
+
+        return;
+    }
+
+
+    if (!predictions || predictions.length === 0) {
+
+        valueElement.textContent = '-- °C';
+
+        resetSites();
+
+        statusElement.textContent =
+            'Waiting for prediction...';
+
+        return;
+    }
+
+
+    const prediction =
+        predictions[predictions.length - 1];
+
+    const values =
+        prediction.values || {};
+
+
+    // 每個 Site 的 prediction
+    for (let site = 1; site <= 4; site++) {
+
+        const value =
+            values[String(site)];
+
+        if (!siteElements[site]) {
+            continue;
+        }
+
+        if (value == null) {
+            siteElements[site].textContent =
+                '-- °C';
+        } else {
+            siteElements[site].textContent =
+                `${Number(value).toFixed(1)} °C`;
+        }
+    }
+
+
+    // 計算目前有資料的 Site 平均值
+    const availableValues =
+        Object.values(values)
+            .filter(value => value != null)
+            .map(Number);
+
+
+    if (availableValues.length === 0) {
+
+        valueElement.textContent = '-- °C';
+
+        statusElement.textContent =
+            `TD ${prediction.td}: prediction unavailable`;
+
+        return;
+    }
+
+
+    const average =
+        availableValues.reduce(
+            (sum, value) => sum + value,
+            0
+        ) / availableValues.length;
+
+
+    valueElement.textContent =
+        `${average.toFixed(1)} °C`;
+
+
+    const statusParts = [];
+
+    statusParts.push(
+        `TD ${prediction.td}`
+    );
+
+
+    if (prediction.ready) {
+        statusParts.push(
+            'All sites ready'
+        );
+    } else {
+        statusParts.push(
+            `${prediction.missing} input(s) missing`
+        );
+    }
+
+
+    if (prediction.latency_ms != null) {
+        statusParts.push(
+            `${prediction.latency_ms.toFixed(2)} ms`
+        );
+    }
+
+
+    statusElement.textContent =
+        statusParts.join(' · ');
+}
+
+function renderDashboardState(state) {
+
+    renderPrediction(
+        state.predictions,
+        state.predictor_error
+    );
+
+    const waferSummary =
+        state.criteria
+            ? null
+            : (state.wafers || []).find(
+                wafer =>
+                    wafer.current &&
+                    wafer.wafer === state.wafer
+            );
+
+    const criteria =
+        state.criteria ??
+        waferSummary?.criteria ??
+        state.indicators ??
+        [];
+
+    renderCriteria(criteria);
+
+
+    // Top status cards
+    document.getElementById('lot').textContent =
+        state.lot ?? '-';
+
+    document.getElementById('wafer').textContent =
+        state.wafer ?? '-';
+
+    document.getElementById('touchdown').textContent =
+        state.touchdown ?? 0;
+
+
+    // Triggered detector indicators
+    const triggeredCriteria =
+        (state.indicators || [])
+            .filter(item => item.triggered);
+
+
+    // Overall wafer status
+    const anomalyLabel =
+        state.headline ??
+        state.label ??
+        'Normal';
+
+    const hasAttention =
+        (state.indicators || []).some(item => item.triggered);
+
+    const hasAnomaly = hasAttention;
+
+    const overallStatus =
+        document.getElementById('overall-status');
+
+    const statusWafer =
+        document.getElementById('status-wafer');
+
+    const statusTitle =
+        document.getElementById('status-title');
+
+    const statusDescription =
+        document.getElementById('status-description');
+
+
+    statusWafer.textContent =
+        state.wafer ?? '-';
+
+
+    if (hasAttention) {
+
+        overallStatus.classList.add('anomaly');
+
+        statusTitle.textContent =
+            'Attention Needed';
+
+        statusDescription.textContent =
+            'Anomalies detected on this wafer.';
+
+    } else {
+
+        overallStatus.classList.remove('anomaly');
+
+        statusTitle.textContent =
+            'No Attention Needed';
+
+        statusDescription.textContent =
+            'No anomalies detected on this wafer.';
+    }
+
+
+    const reportNormal =
+        document.getElementById('report-normal');
+    const reportAnomaly =
+        document.getElementById('report-anomaly');
+
+    const reportTitle =
+        document.getElementById('report-title');
+
+    const reportDescription =
+        document.getElementById('report-description');
+
+
+    if (hasAnomaly) {
+        reportNormal.style.display = 'none';
+        reportAnomaly.style.display = 'flex';
+
+        reportTitle.textContent =
+            anomalyLabel;
+
+        reportDescription.textContent =
+            'The detector identified an abnormal production pattern.';
+
+
+        const onsetValues =
+            triggeredCriteria
+                .map(item => item.detail?.onset_td)
+                .filter(value => value != null);
+
+        const firstOnset =
+            onsetValues.length > 0
+                ? Math.min(...onsetValues)
+                : null;
+
+
+        document.getElementById('affected-sites').textContent =
+            firstOnset != null
+                ? `Detected from Touchdown ${firstOnset}`
+                : 'Detected anomaly';
+
+
+        document.getElementById('detail-touchdown').textContent =
+            firstOnset ?? '-';
+
+        document.getElementById('detail-alert-count').textContent =
+            triggeredCriteria.length;
+
+
+        const alertList =
+            document.getElementById('alert-list');
+
+        alertList.innerHTML = '';
+
+
+        triggeredCriteria.forEach(item => {
+            const card =
+                document.createElement('div');
+
+            card.className = 'alert-detail-card';
+
+            const direction =
+                item.detail?.direction ?? '-';
+
+            const group =
+                item.detail?.group ?? '-';
+
+            const onset =
+                item.detail?.onset_td ?? '-';
+
+            card.innerHTML = `
+                <div class="alert-detail-header">
+                    <strong>${item.name}</strong>
+                </div>
+
+                <div class="alert-detail-meta">
+                    <span>Value: ${item.value ?? '-'}</span>
+                    <span>Threshold: ${item.threshold ?? '-'}</span>
+                    <span>Direction: ${direction}</span>
+                    <span>Group: ${group}</span>
+                    <span>Onset: TD ${onset}</span>
+                </div>
+            `;
+
+            alertList.appendChild(card);
+        });
+
+    } else {
+        reportNormal.style.display = 'block';
+        reportAnomaly.style.display = 'none';
+    }
+
+
+    renderTimeline(state.wafer_map, state.touchdown, state.indicators);
+    renderWaferMap(state.wafer_map);
+    renderSiteOverview(state.wafer_map);
+    renderTDSiteHeatmap(state.wafer_map);
+
+
+    const warningBox =
+        document.getElementById('warning');
+
+    const loadError = state.error;
+
+    if (loadError) {
+        warningBox.style.display = 'block';
+
+        warningBox.textContent =
+            'Detector Warning: ' + loadError;
+    } else {
+        warningBox.style.display = 'none';
     }
 }
 
@@ -938,6 +1369,60 @@ document
             updateWaferHighlight();
         });
     });
+
+document.getElementById('back-to-overview')?.addEventListener('click', backToOverview);
+
+const emailInput = document.getElementById('notification-email');
+const saveEmailButton = document.getElementById('save-email');
+const emailStatus = document.getElementById('email-status');
+
+saveEmailButton?.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+
+    if (!email) {
+        emailStatus.textContent = 'Please enter an email.';
+        return;
+    }
+
+    if (!emailInput.checkValidity()) {
+        emailStatus.textContent = 'Invalid email.';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: email })
+        });
+
+        if (!response.ok) throw new Error('Failed to save email.');
+
+        emailStatus.textContent = 'Saved';
+    } catch (error) {
+        emailStatus.textContent = 'Failed to save';
+    }
+});
+
+async function loadNotificationEmail() {
+    try {
+        const response = await fetch('/api/email');
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (emailInput && data.email) {
+            emailInput.value = data.email;
+        }
+    } catch (error) {
+        console.error('Failed to load notification email:', error);
+    }
+}
+
+loadNotificationEmail();
+
 
 updateDashboard();
 

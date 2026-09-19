@@ -53,166 +53,168 @@
 
     <main class="dashboard">
 
+        <!-- Wafer Overview -->
+        <div id="overview-view">
+            <section class="wafer-overview-panel">
+                <div class="wafer-overview-header">
+                    <h2>Wafer Overview</h2>
+
+                    <div class="wafer-overview-actions">
+                        <div class="email-setting">
+                            <input id="notification-email" class="email-input" type="email" placeholder="Notification email">
+                            <button id="save-email" class="save-email-btn">Save Email</button>
+                            <span id="email-status" class="email-status"></span>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="wafer-overview-table">
+                    <div class="wafer-overview-table-header">
+                        <span>Wafer</span>
+                        <span>Status</span>
+                        <span>Detection</span>
+                        <span>Yield</span>
+                        <span>Onset</span>
+                        <span></span>
+                    </div>
+
+                    <div id="wafer-overview-list"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Wafer Detail -->
+        <div id="detail-view" style="display: none;">
+            <div class="detail-navigation">
+                <button id="back-to-overview" class="back-overview-btn">← Back to Wafer Overview</button>
+                <span id="viewing-indicator"></span>
+            </div>
+
         <!-- Top summary -->
         <section class="summary-grid">
             <!-- Overall Status -->
             <section id="overall-status" class="overall-status normal">
-                <div id="status-icon" class="status-icon">✓</div>
-                <div>
-                    <div id="status-title" class="status-title">
-                        System Normal
+                <div class="status-content">
+                    <div class="status-label">WAFER</div>
+
+                    <div id="status-wafer" class="status-wafer">
+                        -
                     </div>
-                    <div id="status-description" class="status-description">
-                        No anomalies detected.
+
+                    <div class="status-message">
+                        <div id="status-title" class="status-title">
+                            No Attention Needed
+                        </div>
+
+                        <div id="status-description" class="status-description">
+                            No anomalies detected on this wafer.
+                        </div>
                     </div>
                 </div>
             </section>
-            <!-- Temperature -->
-            <div class="panel temperature-panel">
-                <div class="panel-header">
-                    <div>
-                        <h2>IC Temperature Prediction</h2>
-                    </div>
-                </div>
-
-                <div class="temperature-content">
-                    <div id="temperature-value" class="temperature-value">
-                        -- °C
-                    </div>
-
-                    <div id="temperature-status" class="temperature-status">
-                        Waiting for prediction...
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="criteria-panel">
-            <div class="criteria-header">
-                <div>
+            <section class="criteria-panel">
+                <div class="criteria-header">
                     <h2>Detection Criteria</h2>
-                    <p>Current anomaly detection conditions</p>
                 </div>
-            </div>
-            <div id="criteria-list" class="criteria-list">
-                <div class="criteria-item">
-                    <div class="criteria-info">
-                        <div>
-                            <div class="criteria-name">
-                                Mean Trend
+
+                <div id="criteria-list" class="criteria-list">
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Mean Trend</div>
                             </div>
-                            <div class="criteria-detail">
-                                Mean value shift across tests
+
+                            <div class="criteria-bar">
+                                <div id="criteria-mean-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-mean-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="criteria-result">
-                            <span id="criteria-mean-value">-</span>
-                            <span class="criteria-threshold">
-                                / Threshold <span id="criteria-mean-threshold">-</span>
-                            </span>
+
+                            <div class="criteria-result">
+                                <span id="criteria-mean-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-mean-threshold">-</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div class="criteria-bar">
-                        <div
-                            id="criteria-mean-bar"
-                            class="criteria-bar-fill">
-                        </div>
-                        <div
-                            id="criteria-mean-over"
-                            class="criteria-bar-over">
-                        </div>
-                        <div class="criteria-threshold-line"></div>
-                    </div>
-                </div>
-                <div class="criteria-item">
-                    <div class="criteria-info">
-                        <div>
-                            <div class="criteria-name">
-                                Site Unbalance
+
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Site Unbalance</div>
                             </div>
-                            <div class="criteria-detail">
-                                Persistent difference between test sites
+
+                            <div class="criteria-bar">
+                                <div id="criteria-site-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-site-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="criteria-result">
-                            <span id="criteria-site-value">-</span>
-                            <span class="criteria-threshold">
-                                / Threshold <span id="criteria-site-threshold">-</span>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="criteria-bar">
-                        <div
-                            id="criteria-site-bar"
-                            class="criteria-bar-fill">
-                        </div>
-                        <div
-                            id="criteria-site-over"
-                            class="criteria-bar-over">
-                        </div>
-                        <div class="criteria-threshold-line"></div>
-                    </div>
-                </div>
-                <div class="criteria-item">
-                    <div class="criteria-info">
-                        <div>
-                            <div class="criteria-name">
-                                Stdev Trend
-                            </div>
-                            <div class="criteria-detail">
-                                Increase in measurement variation
+
+                            <div class="criteria-result">
+                                <span id="criteria-site-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-site-threshold">-</span>
+                                </span>
                             </div>
                         </div>
-                        <div class="criteria-result">
-                            <span id="criteria-stdev-value">-</span>
-                            <span class="criteria-threshold">
-                                / Threshold <span id="criteria-stdev-threshold">-</span>
-                            </span>
-                        </div>
                     </div>
-                    <div class="criteria-bar">
-                        <div
-                            id="criteria-stdev-bar"
-                            class="criteria-bar-fill">
-                        </div>
-                        <div
-                            id="criteria-stdev-over"
-                            class="criteria-bar-over">
-                        </div>
-                        <div class="criteria-threshold-line"></div>
-                    </div>
-                </div>
-                <div class="criteria-item">
-                    <div class="criteria-info">
-                        <div>
-                            <div class="criteria-name">
-                                Yield
+
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Stdev Trend</div>
                             </div>
-                            <div class="criteria-detail">
-                                Cumulative wafer yield
+
+                            <div class="criteria-bar">
+                                <div id="criteria-stdev-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-stdev-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
+                            </div>
+
+                            <div class="criteria-result">
+                                <span id="criteria-stdev-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-stdev-threshold">-</span>
+                                </span>
                             </div>
                         </div>
-                        <div class="criteria-result">
-                            <span id="criteria-yield-value">-</span>
-                            <span class="criteria-threshold">
-                                / Threshold <span id="criteria-yield-threshold">-</span>
-                            </span>
-                        </div>
                     </div>
-                    <div class="criteria-bar">
-                        <div
-                            id="criteria-yield-bar"
-                            class="criteria-bar-fill">
+
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Yield</div>
+                            </div>
+
+                            <div class="criteria-bar">
+                                <div id="criteria-yield-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-yield-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
+                            </div>
+
+                            <div class="criteria-result">
+                                <span id="criteria-yield-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-yield-threshold">-</span>
+                                </span>
+                            </div>
                         </div>
-                        <div
-                            id="criteria-yield-over"
-                            class="criteria-bar-over">
-                        </div>
-                        <div class="criteria-threshold-line"></div>
                     </div>
                 </div>
-            </div>
+            </section>
         </section>
+
+        
         <!-- Wafer Map -->
         <section class="main-grid">
             <div class="panel">
@@ -271,12 +273,83 @@
 
                 <div class="legend">
                     <span><i class="legend-normal"></i> Pass</span>
-                    <span><i class="legend-alert"></i> Fail</span>
                     <span><i class="legend-related"></i> Suspect</span>
+                    <span><i class="legend-alert"></i> Fail</span>
                     <span><i class="legend-untested"></i> Not tested</span>
                 </div>
             </div>
         </section>
+
+
+        <div class="analysis-grid">
+            <!-- Temperature -->
+            <div class="panel temperature-panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>IC Temperature Prediction</h2>
+                    </div>
+                </div>
+
+                <div class="temperature-content">
+
+                    <div class="temperature-main">
+                        <div id="temperature-value" class="temperature-value">
+                            -- °C
+                        </div>
+
+                        <div class="temperature-average-label">
+                            Average
+                        </div>
+                    </div>
+
+                    <div class="temperature-sites">
+
+                        <div class="temperature-site">
+                            <span>Site 1</span>
+                            <strong id="temperature-site-1">-- °C</strong>
+                        </div>
+
+                        <div class="temperature-site">
+                            <span>Site 2</span>
+                            <strong id="temperature-site-2">-- °C</strong>
+                        </div>
+
+                        <div class="temperature-site">
+                            <span>Site 3</span>
+                            <strong id="temperature-site-3">-- °C</strong>
+                        </div>
+
+                        <div class="temperature-site">
+                            <span>Site 4</span>
+                            <strong id="temperature-site-4">-- °C</strong>
+                        </div>
+
+                    </div>
+
+                    <div id="temperature-status" class="temperature-status">
+                        Waiting for prediction...
+                    </div>
+
+                </div>
+            </div>
+        
+
+            <section class="heatmap-panel">
+                <div class="heatmap-header">
+                    <h2>TD × Site Heatmap</h2>
+
+                    <div class="heatmap-legend">
+                        <span><i class="passed"></i>Pass</span>
+                        <span><i class="suspect"></i>Suspect</span>
+                        <span><i class="failed"></i>Fail</span>
+                    </div>
+                </div>
+
+                <div class="heatmap-content">
+                    <div class="heatmap-grid" id="td-site-heatmap"></div>
+                </div>
+            </section>
+        </div>
 
 
         <section class="report-panel">
@@ -334,10 +407,7 @@
 
         </section>
 
-    </main>
-
-
-    <div class="site-section">
+        <div class="site-section">
         <h2>Site Status</h2>
 
         <div class="site-grid">
@@ -362,6 +432,13 @@
             </div>
         </div>
     </div>
+
+        </div>
+
+    </main>
+
+
+
 
 
     <div id="error" class="error"></div>
