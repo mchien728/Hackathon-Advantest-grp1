@@ -15,7 +15,9 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from predictor import SensorPredictor  # noqa: E402
 from scenario2 import Scenario2  # noqa: E402
 
-DATA_DIR = os.path.join(HERE, "..", "..", "..", "training", "training", "Data")
+_ROOT = os.path.join(HERE, "..", "..", "..")
+DATA_DIR = next((d for d in (os.path.join(_ROOT, "training", "training", "Data"), os.path.join(_ROOT, "SmarTest", "training", "Data")) if os.path.isdir(d)),
+                os.path.join(_ROOT, "training", "training", "Data"))
 HAVE_DATA = os.path.isdir(DATA_DIR)
 
 

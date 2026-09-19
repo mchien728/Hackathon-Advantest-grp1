@@ -105,6 +105,7 @@ class SampleMonitor(Monitor):
         self.sites =[]
         self.s1 = Scenario1()
         self.s2 = Scenario2()
+        self._pin_cache = {}
 
     def get_state(self):
         state = self.s1.get_state()
@@ -389,14 +390,28 @@ class SampleMonitor(Monitor):
             print(f"query_TestSuite = {data.query_TestSuite(index)}")
             print(f"query_MeasurementName = {data.query_MeasurementName(index)}")
 
+    def _pin_names(self, data, index, suite, n_results):
+        # Pin names match the training column names; the test text does not always (Suite3, Suite14).
+        try:
+            cache_key = (suite, data.query_TestNumber(index), n_results)
+            if cache_key not in self._pin_cache:
+                names = [data.query_PinName(pin) for pin in data.query_PinResults(index)]
+                self._pin_cache[cache_key] = names if len(names) == n_results and all(names) else None
+            return self._pin_cache[cache_key]
+        except Exception:
+            return None
+
     def consumeMultiParametric(self, data):
         for index in range(data.get_ResultCount()):
             try:
                 results = data.query_Results(index)
                 if results:
-                    suite, text, site = data.query_TestSuite(index), data.query_TestText(index), toSite(data.query_HeadSite(index))
-                    self.s1.measurement(suite, text, site, results[0])
-                    self.s2.observe(suite, text, site, results[0])
+                    suite, site = data.query_TestSuite(index), toSite(data.query_HeadSite(index))
+                    pins = self._pin_names(data, index, suite, len(results))
+                    labels = pins if pins else [data.query_TestText(index)]
+                    for label, value in zip(labels, results):
+                        self.s1.measurement(suite, label, site, value)
+                        self.s2.observe(suite, label, site, value)
             except Exception:
                 print(f"scenario measurement failed: {traceback.format_exc()}")
         if DEBUG_EVENTS:

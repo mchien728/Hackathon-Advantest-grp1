@@ -9,7 +9,45 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin"))
 import test_sample_local as harness  # noqa: E402  (installs fake oneapi / libACSAction modules)
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "training", "training", "Data")
+_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+DATA_DIR = next((d for d in (os.path.join(_ROOT, "training", "training", "Data"), os.path.join(_ROOT, "SmarTest", "training", "Data")) if os.path.isdir(d)),
+                os.path.join(_ROOT, "training", "training", "Data"))
+
+
+class FakeMulti:
+    """MultiParametric event: one entry per site, each with a result list and pin names."""
+
+    def __init__(self, entries):
+        self.entries = entries
+        self.pin_calls = 0
+
+    def get_ResultCount(self):
+        return len(self.entries)
+
+    def query_Results(self, i):
+        return self.entries[i]["results"]
+
+    def query_TestSuite(self, i):
+        return self.entries[i]["suite"]
+
+    def query_TestText(self, i):
+        return self.entries[i]["text"]
+
+    def query_TestNumber(self, i):
+        return self.entries[i].get("number", 0)
+
+    def query_HeadSite(self, i):
+        return self.entries[i]["site"]
+
+    def query_PinResults(self, i):
+        self.pin_calls += 1
+        pins = self.entries[i].get("pins")
+        if pins is None:
+            raise RuntimeError("no pin info")
+        return list(range(len(pins)))
+
+    def query_PinName(self, pin_id):
+        return self._names[pin_id]
 
 
 class FakeResults:
@@ -187,6 +225,63 @@ class Scenario1SampleTest(unittest.TestCase):
         self.mon.consumeData(self.tc, types.SimpleNamespace(getType=lambda: None))
         self.assertNotIn("testerA", harness.FakeActionManager.messages)
         self.assertEqual(self.mon.get_state()["finished"][-1]["label"], "Normal")
+
+    def _record(self):
+        got = []
+        self.mon.s1.measurement = lambda suite, text, site, value: got.append(("s1", suite, text, site, value))
+        self.mon.s2.observe = lambda suite, text, site, value: got.append(("s2", suite, text, site, value))
+        return got
+
+    def _multi(self, entries):
+        ev = FakeMulti(entries)
+        names = {}
+        for e in entries:
+            for j, name in enumerate(e.get("pins") or []):
+                names[j] = name
+        ev._names = names
+        return ev
+
+    def test_pin_names_split_a_pin_group_result_into_one_measurement_per_pin(self):
+        got = self._record()
+        ev = self._multi([{"suite": "Main.Suite14", "text": "PinGrp", "site": 1, "number": 560, "results": [1.119, 1.475], "pins": ["CP", "MR"]}])
+        self.mon.consumeMultiParametric(ev)
+        self.assertEqual([g for g in got if g[0] == "s1"], [("s1", "Main.Suite14", "CP", 1, 1.119), ("s1", "Main.Suite14", "MR", 1, 1.475)])
+        self.assertEqual([g[2:] for g in got if g[0] == "s2"], [("CP", 1, 1.119), ("MR", 1, 1.475)])
+
+    def test_pin_name_wins_over_test_text_when_they_differ(self):
+        got = self._record()
+        ev = self._multi([{"suite": "Main.Suite3", "text": "IO1", "site": 2, "number": 280, "results": [1.381], "pins": ["IO2"]}])
+        self.mon.consumeMultiParametric(ev)
+        self.assertEqual([g[1:] for g in got if g[0] == "s1"], [("Main.Suite3", "IO2", 2, 1.381)])
+
+    def test_normal_test_keeps_the_same_key_as_before(self):
+        got = self._record()
+        ev = self._multi([{"suite": "Main.Suite2", "text": "IO1", "site": 3, "number": 240, "results": [0.9], "pins": ["IO1"]}])
+        self.mon.consumeMultiParametric(ev)
+        self.assertEqual([g[1:] for g in got if g[0] == "s1"], [("Main.Suite2", "IO1", 3, 0.9)])
+
+    def test_missing_or_mismatched_pin_info_falls_back_to_the_test_text_and_first_result(self):
+        got = self._record()
+        ev = self._multi([
+            {"suite": "Main.A", "text": "T1", "site": 1, "number": 1, "results": [1.0, 2.0], "pins": None},
+            {"suite": "Main.B", "text": "T2", "site": 1, "number": 2, "results": [3.0], "pins": ["X", "Y"]},
+        ])
+        self.mon.consumeMultiParametric(ev)
+        self.assertEqual([g[1:] for g in got if g[0] == "s1"], [("Main.A", "T1", 1, 1.0), ("Main.B", "T2", 1, 3.0)])
+
+    def test_pin_names_are_looked_up_once_per_test(self):
+        self._record()
+        entry = {"suite": "Main.Suite14", "text": "PinGrp", "number": 560, "results": [1.0, 2.0], "pins": ["CP", "MR"]}
+        ev = self._multi([dict(entry, site=s) for s in (1, 2, 3, 4)])
+        self.mon.consumeMultiParametric(ev)
+        self.mon.consumeMultiParametric(ev)
+        self.assertEqual(ev.pin_calls, 1)
+
+    def test_pin_lookup_failure_does_not_break_the_event(self):
+        got = self._record()
+        ev = self._multi([{"suite": "Main.C", "text": "T", "site": 1, "number": 3, "results": [5.0], "pins": None}])
+        self.mon.consumeMultiParametric(ev)
+        self.assertEqual([g[1:] for g in got if g[0] == "s1"], [("Main.C", "T", 1, 5.0)])
 
     def test_wafers_summary_and_drilldown(self):
         self.run_wafer(12, ramp_from=4, end=False)

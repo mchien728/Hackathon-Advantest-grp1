@@ -10,7 +10,9 @@ sys.path.insert(0, os.path.join(HERE, "..", "bin"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from predictor import SensorPredictor, normalize  # noqa: E402
 
-DATA_DIR = os.path.join(HERE, "..", "..", "..", "training", "training", "Data")
+_ROOT = os.path.join(HERE, "..", "..", "..")
+DATA_DIR = next((d for d in (os.path.join(_ROOT, "training", "training", "Data"), os.path.join(_ROOT, "SmarTest", "training", "Data")) if os.path.isdir(d)),
+                os.path.join(_ROOT, "training", "training", "Data"))
 FIXTURE = os.path.join(HERE, "fixtures", "sensor_reference.json")
 EXPECTED_FEATURES = {1: 29, 2: 400, 3: 20, 4: 600, 5: 400, 6: 800}
 TARGETS = {1: "Main.sensor1#CP", 2: "Main.sensor2#DS0", 3: "Main.sensor3#IO4", 4: "Main.sensor4#IO1", 5: "Main.sensor5#IO2", 6: "Main.sensor6#IO3"}
