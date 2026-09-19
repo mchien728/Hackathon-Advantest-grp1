@@ -40,6 +40,26 @@ def read_tests(path):
             continue
 
 
+def fit_values(vals):
+    mu, sigma = robust_stats(vals)
+    n_out = 0
+    skew = kurt = 0.0
+    reason = None
+    if sigma >= 1e-12:
+        core = [v for v in vals if abs(v - mu) <= TRIM_Z * sigma]
+        n_out = len(vals) - len(core)
+        skew, kurt = shape(core)
+    if sigma < 1e-12:
+        reason = "constant"
+    elif n_out > MAX_TRIM_FRAC * len(vals):
+        reason = "too_many_outliers"
+    elif abs(skew) > MAX_ABS_SKEW:
+        reason = "skewed"
+    elif abs(kurt) > MAX_ABS_KURT:
+        reason = "heavy_tail"
+    return {"mu": round(mu, 9), "sigma": round(sigma, 9), "n": len(vals), "n_out": n_out, "monitor": reason is None}, reason
+
+
 def fit(path):
     tests = {}
     reasons = {"duplicate": 0, "too_few": 0, "constant": 0, "too_many_outliers": 0, "skewed": 0, "heavy_tail": 0}
@@ -50,27 +70,9 @@ def fit(path):
         if len(vals) < 20:
             reasons["too_few"] += 1
             continue
-        mu, sigma = robust_stats(vals)
-        monitor = True
-        n_out = 0
-        skew = kurt = 0.0
-        if sigma >= 1e-12:
-            core = [v for v in vals if abs(v - mu) <= TRIM_Z * sigma]
-            n_out = len(vals) - len(core)
-            skew, kurt = shape(core)
-        if sigma < 1e-12:
-            monitor = False
-            reasons["constant"] += 1
-        elif n_out > MAX_TRIM_FRAC * len(vals):
-            monitor = False
-            reasons["too_many_outliers"] += 1
-        elif abs(skew) > MAX_ABS_SKEW:
-            monitor = False
-            reasons["skewed"] += 1
-        elif abs(kurt) > MAX_ABS_KURT:
-            monitor = False
-            reasons["heavy_tail"] += 1
-        tests[key] = {"mu": round(mu, 9), "sigma": round(sigma, 9), "n": len(vals), "n_out": n_out, "monitor": monitor}
+        tests[key], reason = fit_values(vals)
+        if reason:
+            reasons[reason] += 1
     return tests, reasons
 
 

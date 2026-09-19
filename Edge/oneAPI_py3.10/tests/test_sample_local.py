@@ -21,6 +21,12 @@ class FakeActionManager:
         return True
 
     @classmethod
+    def set_wait(cls, testerid, wait_time, reason):
+        cls.messages[testerid] = reason
+        cls.last_wait = wait_time
+        return True
+
+    @classmethod
     def get(cls, testerid):
         return json.dumps({"tester": testerid, "message": cls.messages.get(testerid, "")})
 

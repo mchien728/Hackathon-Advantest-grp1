@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin"))
-from detector import Detector, normalize_key  # noqa: E402
+from detector import Detector, normalize_key, robust_stats  # noqa: E402
 
 KEYS = [f"Main.S{i}#CP" for i in range(5)]
 BASE = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in KEYS}
@@ -114,6 +114,129 @@ class DetectorTest(unittest.TestCase):
         self.assertLessEqual(len(v["top_alerts"]), 5)
         self.assertTrue(0 < len(v["message"]) <= 200)
         self.assertEqual(set(v["top_alerts"][0]), {"kind", "test", "site", "score", "seq"})
+
+    def test_robust_stats_is_accurate_and_ignores_outliers(self):
+        rng = random.Random(5)
+        clean = [rng.gauss(10.0, 2.0) for _ in range(2000)]
+        mu, sigma = robust_stats(clean)
+        self.assertAlmostEqual(mu, 10.0, delta=0.2)
+        self.assertAlmostEqual(sigma, 2.0, delta=0.15)
+        mu2, sigma2 = robust_stats(clean[:1900] + [500.0] * 100)
+        self.assertAlmostEqual(sigma2, 2.0, delta=0.3)
+
+    def test_sigma_is_inflated_by_sample_size(self):
+        small = Detector({"a#p": {"mu": 0.0, "sigma": 1.0, "monitor": True, "n": 25}})
+        large = Detector({"a#p": {"mu": 0.0, "sigma": 1.0, "monitor": True, "n": 10 ** 6}})
+        small.update("a#p", 1, 0.0, 0)
+        large.update("a#p", 1, 0.0, 0)
+        self.assertAlmostEqual(1.0 / small._st["a#p"].inv, 1.0 + 0.5 / 5.0, places=6)
+        self.assertAlmostEqual(1.0 / large._st["a#p"].inv, 1.0, delta=0.01)
+
+    def test_mismatched_baseline_falls_back_to_warmup_without_false_alarms(self):
+        det = Detector({k: {"mu": 0.0, "sigma": 1.0, "monitor": True, "n": 10 ** 9} for k in KEYS})
+        rng = random.Random(9)
+        verdicts = []
+        for td in range(30):
+            for key in KEYS:
+                for site in (1, 2, 3, 4):
+                    det.update(key, site, 1000.0 + rng.gauss(0.0, 1.0), td)
+            verdicts.append(det.end_touchdown())
+        self.assertFalse(any(v["anomaly"] for v in verdicts))
+        self.assertTrue(all(st.warm is None and st.ok for st in det._st.values()))
+
+    def test_single_site_spike_is_not_treated_as_baseline_mismatch(self):
+        det = Detector(BASE)
+        for site, value in ((1, 0.1), (2, 0.2), (3, 500.0), (4, -0.1)):
+            det.update(KEYS[0], site, value, 0)
+        self.assertIsNone(det._st[KEYS[0]].probe)
+        self.assertTrue(det._st[KEYS[0]].ok)
+        self.assertTrue(det.end_touchdown()["anomaly"])
+
+    def test_common_wafer_offset_is_removed_without_false_alarms(self):
+        keys = [f"Main.S{i}#CP" for i in range(30)]
+        base = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in keys}
+        det = Detector(base, {"off_min_n": 20})
+        verdicts = run(det, 30, mod=lambda t, s, x: x + 0.9, keys=keys)
+        self.assertFalse(any(v["anomaly"] for v in verdicts))
+        self.assertAlmostEqual(det._off, 0.9, delta=0.3)
+        self.assertEqual(det.end_wafer()["label"], "Normal")
+
+    def test_end_wafer_labels_mean_trend_and_direction(self):
+        keys = [f"Main.S{i}#CP" for i in range(40)]
+        base = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in keys}
+        for sign, label in ((1, "Mean Trend Up"), (-1, "Mean Trend Down")):
+            det = Detector(base, {"off_min_n": 20})
+            run(det, 12, mod=lambda t, s, x: x + sign * 1.5 * t, start=4, keys=keys)
+            self.assertEqual(det.end_wafer()["label"], label)
+
+    def test_labels_are_independent_and_first_one_is_the_classification(self):
+        det = Detector(BASE)
+        f = {"site": 25, "mean_up": 40, "mean_down": 0, "var_up": 0, "yield": 0.9, "devices": 40}
+        self.assertEqual(det._labels(f), ["Site unbalance", "Mean Trend Up"])
+        self.assertEqual(det._classify(f), "Site unbalance")
+        f = {"site": 0, "mean_up": 0, "mean_down": 35, "var_up": 21, "yield": 0.7, "devices": 40}
+        self.assertEqual(det._labels(f), ["Mean Trend Down", "Stdev Trend Up", "Low yield"])
+        f = {"site": 0, "mean_up": 0, "mean_down": 0, "var_up": 0, "yield": 0.7, "devices": 10}
+        self.assertEqual((det._labels(f), det._classify(f)), ([], "Normal"))
+
+    def test_evidence_lists_tests_of_the_flagged_group_with_kind_and_direction(self):
+        keys = [f"Main.subflow1.Flow1_Suite{i}#CP" for i in range(40)]
+        base = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in keys}
+        det = Detector(base, {"off_min_n": 20})
+        run(det, 12, mod=lambda t, s, x: x + 1.5 * t, start=4, keys=keys)
+        ev = det.evidence()
+        self.assertGreaterEqual(len(ev), 30)
+        self.assertEqual({r["group"] for r in ev}, {"Main.subflow1"})
+        self.assertTrue(all(r["direction"] == "up" for r in ev if "mean_shift" in r["kinds"]))
+        self.assertEqual(set(ev[0]), {"test", "group", "kinds", "direction", "site"})
+        self.assertEqual(Detector(base).evidence(), [])
+
+    def test_die_detail_reports_group_and_count_for_the_last_touchdown(self):
+        keys = [f"Main.subflow1.Flow1_Suite{i}#CP" for i in range(6)]
+        base = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in keys}
+        det = Detector(base)
+        for key in keys:
+            for site in (1, 2, 3, 4):
+                det.update(key, site, 20.0 if site == 3 else 0.0, 0)
+        det.end_touchdown()
+        self.assertEqual(det.die_detail(), {3: ("Main.subflow1", 6)})
+        self.assertEqual(det.die_flags(), {3: 6})
+
+    def test_end_wafer_labels_low_yield_but_ignores_systematic_bin(self):
+        det = Detector(BASE)
+        for i in range(40):
+            det.update_device(1, i % 2 == 0, 6)
+        self.assertEqual(det.end_wafer()["label"], "Low yield")
+        det.reset("wafer")
+        for i in range(40):
+            det.update_device(1, i % 2 == 0, 3)
+        self.assertEqual(det.end_wafer()["label"], "Normal")
+
+    def test_reset_wafer_clears_offset_and_counters(self):
+        det = Detector(BASE, {"off_min_n": 5})
+        run(det, 3, mod=lambda t, s, x: x + 0.8)
+        self.assertNotEqual(det._off, 0.0)
+        det.reset("wafer")
+        self.assertEqual(det._off, 0.0)
+        self.assertEqual(det.end_wafer()["touchdowns"], 0)
+
+    def test_metrics_are_json_serializable_and_report_ramp(self):
+        import json
+        keys = [f"Main.subflow2.S{i}#CP" for i in range(40)]
+        base = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in keys}
+        det = Detector(base, {"off_min_n": 20})
+        run(det, 14, mod=lambda t, s, x: x + 1.5 * t if t < 6 else x, start=3, keys=keys)
+        m = json.loads(json.dumps(det.metrics()))
+        self.assertEqual([c["id"] for c in m["criteria"]], list(range(1, 9)))
+        self.assertEqual(m["label"], "Mean Trend Up")
+        ramp = m["criteria"][6]["detail"]
+        self.assertIsNotNone(ramp["onset_td"])
+        self.assertTrue(ramp["snapped_back"])
+        self.assertEqual(ramp["group"], "Main.subflow2")
+        self.assertIn("Main.subflow2", m["series"])
+
+    def test_info_reports_baseline_size(self):
+        self.assertEqual(Detector(BASE).info(), {"monitored_tests": 5, "baseline_tests": 5, "load_error": None})
 
 
 if __name__ == "__main__":

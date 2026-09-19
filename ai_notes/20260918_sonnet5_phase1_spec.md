@@ -1,6 +1,38 @@
 # Phase 1 Spec：異常偵測器（已實作，見第 11 節）
 
-> 狀態：**已依預設實作**。第 2.3 節原先「沒有埋異常」的結論**有誤**，已更正；實作結果與和原 spec 的差異記錄在第 11 節。
+> 狀態：**已依預設實作（僅場景一的一部分）**。**2026-09-19 補充：官方題目（`Question_20260919.pdf`）比本 spec 的範圍大，見第 0 節、4.1、12 節。**第 2.3 節原先「沒有埋異常」的結論**有誤**，已更正；實作結果與和原 spec 的差異記錄在第 11 節。
+
+---
+
+## 0. 題目要求（`ai_notes/Question_20260919.pdf`，2026-09-19 補充；優先於本文其他假設）
+
+**題目**：用 ACS RTDI 開發即時監測量產的方案，用 AI/ML 發現問題或預測 IC 效能，佈署到生產線；發現問題時即時通知/詢問，或與測試機台軟體互動。
+
+**兩個場景**
+1. **場景一（異常偵測 + 報告）**：即時偵測異常，並把異常整理成報告，通知特定人員或供其查詢。
+2. **場景二（預測）**：預測 IC 的溫度，並把結果通知機台軟體。
+
+**評分**：完成度 60%（符合場景 10%、能在 ACS Gemini 順利運行 25%、正確的時機偵測問題或預測結果 25%）；創新 40%（資料分析方法 15%、**異常報告的呈現是否新穎 25%**）。
+
+**資料**：25 片 wafer × 80 顆 device × 約 3000 測項，csv 格式的 25 份 data log（**訓練用，目前不在 repo**）；另有「用來評估結果的測試程式」。**訓練資料有 wafer 層級的標籤**（題目第 3 頁）：
+
+| 標籤 | wafer |
+|---|---|
+| Site unbalance | W1 |
+| Low yield（yield 低於 80，推定為 80%） | W3、W9 |
+| Mean Trend Up | W14 |
+| Mean Trend Down | W18 |
+| Stdev Trend Up | W23 |
+| Stdev Trend Down | W25 |
+| Normal（共 18 片） | W2、W4–W8、W10–W13、W15–W17、W19–W22、W24 |
+
+**測試流程與「不可洩漏」規則**（第 4 頁）：Start → PreBind → PreRun → Main：Suite1–14 → IDDQ_flow →（receive_temp_predict1 → sensor1 → subflow1）→ … →（receive_temp_predict6 → sensor6 → subflow6）→ 依 `fail_rate` 分 bin。**訓練預測 sensorN 的模型時，不能使用尚未執行的測項結果**（例：預測 sensor1 不能用 subflow1 之後的資料）。
+
+**執行期協定**（第 5、6 頁）
+- 場景二：測試程式把要預測的測項編號送給容器（`100_Main.sensor1_CP`、`120_Main.sensor2_DS0`、`140_Main.sensor3_IO4`、`160_Main.sensor4_IO1`、`180_Main.sensor5_IO2`、`200_Main.sensor6_IO3`），容器預測後回傳。題目附的範例是在 `consumeTPRequest` 加 `key == "predict"` 分支，把各 site 的預測值組成字串，呼叫 `ActionManager.set_wait(tc.testerId, wait, message)`，再 `response = ActionManager.get(tc.testerId)`。
+- 場景一：偵測到異常後，用 `ActionManager.set_message(tc.testerId, "…")` 把訊息回傳給測試程式（機台名稱從每個 event 的 `tc.testerId` 取得）。
+
+**目前的落差**：本 spec 的偵測器只涵蓋場景一的一部分（見 4.1）；**場景二完全還沒做**（見第 12 節）；佔 25% 的「異常報告」目前只有 `message` 一行字。
 
 ---
 
@@ -25,6 +57,8 @@
 2. **趨勢問題**：平均值上升/下降（線性漂移）、標準差趨勢改變（散佈越來越大）、量測值位移（階梯式跳變）
 3. **基準假設**：沒有異常時，量測值分佈為**常態分佈**（Gaussian）
 
+> 補充：題目的異常分類比教材第 29 頁更完整——多了 **Low yield**，且平均值與標準差的趨勢都分「上升 / 下降」（第 0 節）。
+
 ### 2.2 資料格式
 - 教材第 28 頁的資料集是「寬表」：每列一顆元件，欄位為 `PID, Lot, Wafer, Site, X, Y, PF, SBin, HBin, Test Time`，之後每個測項一欄，欄名為 `<test number>_<test suite>#<pin>`（例：`220_Main.Suite1#CP`），表頭另有 `Pin / Test Num / High Limit / Low Limit` 列。
 - 教材範例的上下限是 High=0.6、Low=1.8（**高低顛倒**），量測值卻在 1.2 附近 → **偵測器不可依賴上下限**，只看分佈。
@@ -38,6 +72,8 @@
   2. **個別極端尖峰**：少數測項有單筆高達約 240σ 的值，以及零星其他離群點。
   3. 其餘四類統計量（site 中位數偏移、Theil–Sen 漂移、前後半段位移、前後半段標準差比）的超標數（各約 0 到 7 個）與純雜訊預期（約 3 個）一致，**沒有埋 site 偏移、漂移、位移、變異**。
 - 影響：基準線必須用**穩健統計量**（中位數 + 1.4826×MAD）；極端值進入累積型偵測器前必須**截斷**，否則單一尖峰會把 EWMA、site 視窗與漂移視窗撐爆，警報持續 20～30 個 touchdown（實測踩到，見第 11 節）。
+
+- **這份 CSV 就是題目的 W1**：CSV 的 `wafer` 列為 1、`lot` 為 A12345；W1 的標籤是 Site unbalance，與我們發現的「site 4 突發」吻合（推定，待確認）。sensor1～6 的值約 27.6～35.0，每個 sensor 的標準差僅約 0.09～0.16（場景二的預測難度基準，見第 12 節）。
 
 ### 2.4 環境限制（實測）
 - Edge dev pod：Python 3.10.12、有 `numpy 2.2.6`、`flask`；**沒有** `pandas`/`scikit-learn`/`matplotlib`/`pillow`/`joblib`/`onnxruntime`，且 pod **不能連外網**。
@@ -70,6 +106,23 @@
 
 **彙總判定（每個 touchdown）**：同一 pin 群組內累積 ≥ K 個測項告警，或任一告警分數 ≥ S_hard，則 `anomaly = True`（暫定 K=3）。原因：真實異常通常牽動一整群相關測項，且一次監控約 12,000 條串流（3035 測項 × 4 site），單條門檻設在 3σ 會產生大量誤報。
 
+### 4.1 與題目分類的對照與缺口
+
+| 題目標籤 | 對應偵測 | 現況 |
+|---|---|---|
+| Site unbalance | `site_imbalance` | 有（W1 的 site 4 突發也被 `outlier` / `mean_shift` 抓到） |
+| Mean Trend Up / Down | `mean_drift`、`mean_shift` | 有偵測，但**沒有回報方向**（`Alert` 沒有上升/下降欄位） |
+| Stdev Trend Up | `variance_change` | 有 |
+| **Stdev Trend Down** | — | **缺**：變異的 EWMA 只偵測增加，不偵測減少 |
+| **Low yield（< 80）** | — | **缺**：完全沒有良率偵測 |
+| 整片 wafer 屬於哪一類的報告 | — | **缺**：目前只有逐 touchdown 的判定，沒有 wafer 層級的分類與彙總 |
+
+**需要補的項目**（會改到契約，需通知 A、B、D、E）
+1. `Alert` 增加 `direction`（`"up"` / `"down"`）；CUSUM 有正負兩側，可直接取得方向；變異偵測改成雙邊。
+2. 良率偵測：用 `consumeTestEnd` 的 `query_PartFlag` / `query_SBinResult` / `query_HBinResult` 累積良率，與 80% 比較；早期樣本少，需用二項分佈的信賴界避免誤報；`consumeWaferEnd` 的 `get_GoodCount` / `get_TestedCount` 可做 wafer 結束時的最終確認。
+3. wafer 層級彙總：`{"wafer": ..., "label": "Site unbalance|Low yield|Mean Trend Up|...|Normal", "onset_td": ..., "evidence": [...]}`，供報告與儀表板使用。
+4. 原本「同 pin 群組 ≥3 個測項」的判定規則要重新檢討：題目要的是「wafer 是哪一類」，不是「這個 touchdown 有沒有異常」。
+
 ## 5. 介面契約（Phase 3 / Phase 5 會依賴，改動需通知）
 
 ```python
@@ -90,7 +143,7 @@ Verdict = {"anomaly": bool, "score": float, "n_alerts": int,
 - `test_key` 格式沿用教材：`<test number>_<test suite>#<pin>`。**執行期事件的 `query_TestNumber`/`query_TestSuite`/`query_MeasurementName` 能否組出同一個 key 尚未驗證**（見第 9 節問題 4）。
 - `baseline.json`：`{"version": 1, "tests": {"<test_key>": {"mu": float, "sigma": float, "n": int}}, "params": {...}}`，預估約數百 KB。
 
-## 6. 驗證計畫（無標籤，靠合成注入）
+## 6. 驗證計畫（合成注入 + 有標籤的 25 片 wafer）
 
 ### 6.1 測試資料
 - **乾淨資料**：由離線 CSV 擬合每個測項的 (μ, σ)，再以常態分佈**產生任意長度的乾淨串流**（因為原始資料只有 80 顆，不夠估計低誤報率）。
@@ -115,6 +168,14 @@ Verdict = {"anomaly": bool, "score": float, "n_alerts": int,
 
 ### 6.3 基準線品質檢查
 對每個測項做偏度/峰度檢查，回報偏離常態的比例（呼應 2.3 節標準差比尾巴偏重的現象），偏離嚴重的測項標記為「不監控」或改用較保守門檻。
+
+### 6.4 用有標籤的 25 片 wafer 驗證（資料尚未取得）
+
+題目提供了 wafer 層級標籤，所以**可以算真正的準確率**（之前「沒有標籤」的假設已不成立）。
+1. 每片 wafer 依序餵 80 顆 device 給偵測器，取得預測的標籤與首次警報的位置。
+2. 指標：wafer 層級的混淆矩陣與準確率（含 Normal）、每種異常的偵測率、**18 片 Normal 上的誤報率**、首次警報相對於異常起點的延遲。
+3. **限制**：每種異常只有 1～2 片（Site unbalance 1 片、Low yield 2 片、其餘各 1 片），樣本極少。不能同時拿它們調參數又拿來報告準確率；建議用合成注入設計與調參，用這 25 片做留出驗證，或做 leave-one-wafer-out，並在報告誠實標示樣本數。
+4. 「正確的時機」如何量化題目沒說明（見 9.1）。
 
 ## 7. 效能預算（**提案，需在 Edge pod 實測**）
 - 單次 `update()`：p99 ≤ 200 µs
@@ -145,6 +206,18 @@ Verdict = {"anomaly": bool, "score": float, "n_alerts": int,
 5. **驗收數值**（6.2 節）：誤報率、偵測率、延遲是否合理？有沒有評審或題目要求的指標？
 6. **判定規則**：K=3 個測項同 pin 群組告警才算異常，是否符合你們想展示的情境？
 7. **不做 `IsolationForest`**（環境沒有 `scikit-learn`）：可以接受作為「後續選配」嗎？
+
+### 9.1 題目讀完後的狀態
+
+| 原問題 | 狀態 |
+|---|---|
+| 1 資料來源 | **已回答**：25 份有標籤的訓練 log + 評估用測試程式。**仍待**：取得資料（不在 repo） |
+| 2 驗收數值 | 評分項目已知（第 0 節），但「正確的時機」怎麼量化仍未知 |
+| 3 判定規則 | 需重新設計：題目要的是 wafer 分類 + 報告（4.1 第 4 點） |
+| 4 測項 key | 命名規則 `<測項編號>_<test suite>#<pin>`（第 3 頁範例）；題目中目標測項寫成 `100_Main.sensor1_CP`，`#` 與 `_` 不一致，仍需用真實事件確認 |
+| 7 不做 IsolationForest | 環境限制不變；訓練在本機做，執行期只評估 |
+
+**仍待向主辦方確認**：① 「正確的時機」的定義；② Low yield 的 80 是百分比嗎；③ 場景二的 `predict` 請求由誰、怎麼送（見 12.4）；④ 訓練資料怎麼取得；⑤ 報告要通知誰、用什麼形式。
 
 ## 10. 確認後的實作步驟
 
@@ -212,6 +285,45 @@ Verdict = {"anomaly": bool, "score": float, "n_alerts": int,
 3. **測項名稱是否對得上仍未在真實環境驗證**；對不上時偵測器會自動暖機（前 40 個值），但會失去離線基準線的即時性。
 4. **`site = DUT 序號 % 4 + 1` 仍是推定**，但 CSV 內五個離群點全落在同一個 site，與此推定一致。
 5. `tests/test_sample_local.py` 內 `test_list_request_returns_seeded_message` 目前會失敗（它檢查已還原的測試樁），Phase 3 會取代它。
+6. **題目（第 0 節）的範圍比本 spec 大**：缺 Stdev Trend Down、Low yield、wafer 層級報告（4.1），以及整個場景二（第 12 節）。
+
+## 12. 場景二：溫度預測（新增，尚未實作）
+
+### 12.1 要求
+測試程式在每個 sensorN 之前送出預測請求，容器要回傳**每個 site** 的預測值；預測結果與資料中真實的 sensor 值比較評分（「用來評估結果的測試程式」）。目標測項共 6 個（見第 0 節）。
+
+### 12.2 資料事實
+- W1 的 sensor 值：sensor1 均值 34.10、sd 0.089；sensor2 34.32、0.129；sensor3 27.85、0.131；sensor4 34.16、0.134；sensor5 31.37、0.158；sensor6 34.87、0.098。
+- **只用均值預測，誤差就約等於 sd（約 0.1）**：模型的價值在於比這個基準好多少，評估時應報告相對於「用訓練均值預測」的改善幅度。
+- 訓練資料：25 片 × 80 顆 = 2000 個樣本，特徵數約 3000，遠多於樣本數，需要正則化或特徵篩選。
+
+### 12.3 不可洩漏規則與可用特徵
+CSV 的列順序即執行順序（已核對）。預測 sensorN 只能用它**之前**執行的測項：
+
+| 目標 | 可用 | 不可用 |
+|---|---|---|
+| sensor1 | Suite1–14、IDDQ_flow | subflow1 及之後 |
+| sensorN（N ≥ 2） | 上列 + sensor1..N−1 + subflow1..N−1 | subflowN 及之後、sensorN 本身 |
+
+訓練時做特徵篩選、標準化等，也只能用訓練 wafer，且用「依 wafer 分組的交叉驗證」，避免同一片 wafer 同時出現在訓練與驗證。
+
+### 12.4 執行期協定（待確認）
+- 請求形式（依題目第 5 頁範例）：`{"key": "predict", "data": "<測項編號>"}`；回應：對每個 site 算預測值，組成 `prediction <編號>: (site,value) ...`，`ActionManager.set_wait(tc.testerId, wait, message)`，再回傳 `ActionManager.get(tc.testerId)`。
+- **repo 內找不到送出 `predict` 的地方**：`AdaptiveTest.java` 只送 `{"action":"list"}`，`sample.py` 也沒有 `predict` 分支。要向主辦方取得評估用測試程式，或用 `libACS.jar`（`FetchAction` 可帶自訂命令）確認。
+- 需要知道有哪些 site：可由 `consumeLotStart` 的 `get_TotalHeadSiteList()` 取得。
+- **時序風險**：預測請求走 TPService（ZMQ），量測資料走 Kafka，是不同通道。請求到達時，該 touchdown 前面測項的資料是否已被 `consumeData` 收到，**必須用真實環境驗證**。
+
+### 12.5 評估
+預測值 vs 資料中真實的 sensor 值：RMSE、MAE，並報告相對於均值基準的改善（skill = 1 − RMSE²/var）。
+
+### 12.6 建議做法（草案）
+1. 每個 sensor 各自一個模型；先用正則化線性模型（Ridge / PLS）+ 特徵篩選，`numpy` 就能訓練，本機做，不進 image。
+2. 匯出標準化參數與權重成 JSON；執行期純 Python 做點積（約 3000 個乘加 × 4 個 site，成本很低）。
+3. 依 wafer 分組交叉驗證，逐 sensor 報告 RMSE 與相對均值基準的改善；若 site 效應明顯，把 site 當特徵。
+4. 進階（選配）：梯度提升樹；需權衡執行期只能用純 Python / `numpy` 評估。
+
+### 12.7 待辦與風險
+訓練資料取得、`predict` 請求的送法、時序驗證、預測請求的處理時間預算（每個 touchdown 有 6 次請求）、與場景一共用 `consumeTPRequest` 時的分派邏輯。
 
 ---
 
@@ -219,7 +331,7 @@ Verdict = {"anomaly": bool, "score": float, "n_alerts": int,
 - 新增：`ai_notes/20260918_sonnet5_phase1_spec.md`（本檔案）
 
 ## 技術細節與邏輯
-- 依據：`doc/WorkShop_Material.pdf` 第 28–29 頁、`doc/ONEAPI_Manual.pdf`（callback 阻塞規則）、離線 CSV 的實測統計、以及對 Edge dev pod 與 Host Controller 的唯讀環境檢查。
+- 依據：`ai_notes/Question_20260919.pdf`（官方題目）、`doc/WorkShop_Material.pdf` 第 28–29 頁、`doc/ONEAPI_Manual.pdf`（callback 阻塞規則）、離線 CSV 的實測統計、以及對 Edge dev pod 與 Host Controller 的唯讀環境檢查。
 - 第 2.3 節的統計以本機 numpy 計算：site 間差異採 ANOVA 型統計量、漂移為線性回歸斜率 × 80 / σ、位移為前後各 40 顆的平均差 z 值。
 
 ## 待執行事項與注意事項
