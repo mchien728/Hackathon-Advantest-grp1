@@ -1,6 +1,9 @@
-from bin.dashboard import start_dashboard
+from dashboard import start_dashboard
+import requests
 import time
+import threading
 
+url = "http://localhost:5000/api/state"
 
 # Temporary wafer coordinates for frontend testing
 x_coords = [
@@ -232,9 +235,12 @@ def fake_get_state():
     }
 
 
-start_dashboard(fake_get_state)
+thread = threading.Thread(target=start_dashboard, daemon=True)
+thread.start()
 
 print("Dashboard started at http://localhost:5000")
 
 while True:
+    response = requests.post(url, json=fake_get_state())
+    print(response.status_code, response.json())
     time.sleep(1)
