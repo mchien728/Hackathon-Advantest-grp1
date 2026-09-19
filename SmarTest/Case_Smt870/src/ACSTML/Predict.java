@@ -17,17 +17,21 @@ import libACS.Adaptive.ActionInstruction.VarActionCollection;
 import libACS.misc.CommonFunc;
 import xoc.dta.TestMethod;
 import xoc.dta.datalog.IDatalog;
+import xoc.dta.datatypes.MultiSiteLong;
 
 
-public class AdaptiveTest extends TestMethod {
+public class Predict extends TestMethod {
 
     public int timeout=1;
     public Integer debugLevel =  0;
     public String AppName="";
     public String AppLoc="edge";
     public String messUtil="";
+    public int predict_num=1;
+
     private Vector<String> GDRLogs = new Vector<String>();
     private String messUtilPath="";
+
 
   @Override
 public void initialize()
@@ -55,21 +59,39 @@ public void initialize()
     public void execute() {
         //ReadDieCoor(debugLevel);
         Long timerStart = CommonFunc.TimeDiff();
-        String Cmd="{\"action\":\"list\"}";
+        String Cmd="{\"key\":\"predict\",\"data\":"+String.valueOf(predict_num)+"}";
         println("[AdaptiveTest Begin]");
         println("****************************************************************************************");
-        RunApaptiveTest(Cmd,AppName, debugLevel,timeout);
+        RunPredict(Cmd,AppName, debugLevel,timeout);
         String GDRlog = "Adaptive Test Execution Time:" + CommonFunc.TimeDiff(timerStart).toString()+ " ms";
         GDRLogs.add(GDRlog);
         logGDR(GDRLogs);
         println("****************************************************************************************\n");
-
     }
-    void RunApaptiveTest(String Cmd,String appname ,Integer debugLevel, int timeout)
+    String FetchDieLoc()
+    {
+
+        MultiSiteLong wafer_X = context.testProgram().variables().getLong("STDF.X_COORD");
+        MultiSiteLong wafer_Y = context.testProgram().variables().getLong("STDF.Y_COORD");
+        String datalogACS = "";
+        for(int site : wafer_X.getActiveSites()) {
+            String acsFormatDieCoor = site+"_"+wafer_X.get(site).toString()+"_"+wafer_Y.get(site).toString();
+            if(datalogACS.equals("")) {
+                datalogACS = "DIEINFO:"+ acsFormatDieCoor;
+            }
+            else{
+                datalogACS = datalogACS + ";" + acsFormatDieCoor;
+            }
+        }
+        return datalogACS;
+    }
+
+
+
+    void RunPredict(String Cmd,String appname ,Integer debugLevel, int timeout)
     {
 
         ExecResult nExecResult=new ExecResult();
-        //String DebugAction="{\"tester\":\"smartest_host\",\"mtesterAction\":[{\"name\":\"default\",\"pool\":[{\"act_typ\": \"tp_var\",\"mactions\":[{\"testsuite\":\"\",\"param\":\"Var1\",\"val\":\"-1=1,1=2,2=3\"}]},{\"act_typ\": \"restore\"}]}]}";
         String DebugAction="";
         GDRLogs.clear();
         VarActionCollection varActionCollection=new VarActionCollection();
@@ -97,7 +119,7 @@ public void initialize()
                         {
                             if(!nAction.reason.equals(""))
                             {
-                                sendToFifo(nAction.reason);
+                                sendToFifo(FetchDieLoc()+" "+ nAction.reason);
                             }
                         }
                     }
@@ -170,12 +192,11 @@ public void initialize()
                         new ProcessBuilder("sh", "-c", messUtilPath)
                                 .start();
                         System.out.println("Command started");
+                        Thread.sleep(1000);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
-
-
                 Cmd ="{\"action\" : \"" + "text" +"\",\"value\": \""+formatted+" "+ data + "\"}";
                 println("SendToFifo Write " + data);
                 File fifo = new File(fifoPath);
