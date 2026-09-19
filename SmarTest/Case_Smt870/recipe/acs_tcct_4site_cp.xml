@@ -86,12 +86,12 @@
         <Assignment>
           <Increment name="TDNum" value="1"/>
         </Assignment> 
-        <LibraryCall function="LibACS.acs_sot"/>     
+        <LibraryCall function="LibACS.acs_sot">     
         <EquipmentControl function="LOAD_DEVICE" />
         <LibraryCall function="PartIDLib.autoIncrementPartID"/>
         <Testflow action="ExecuteMainflow"/>
         <EquipmentControl function="BIN_DEVICE" />
-        <LibraryCall function="LibACS.acs_postbin"/>
+        <LibraryCall function="LibACS.acs_postbin">
        </Level>          
       
       <EquipmentControl function="UNLOAD_WAFER" />

@@ -74,10 +74,12 @@
         <Assignment>
           <Increment name="TDNum" value="1"/>
         </Assignment>      
+	<LibraryCall function="LibACS.acs_sot"/>
         <EquipmentControl function="LOAD_DEVICE" />
         <LibraryCall function="PartIDLib.autoIncrementPartID"/>
         <Testflow action="ExecuteMainflow"/>
-        <EquipmentControl function="BIN_DEVICE" />	     
+        <EquipmentControl function="BIN_DEVICE" />
+	<LibraryCall function="LibACS.acs_postbin"/>	     
        </Level>          
 
       <Datalog action="CLOSE" type="STDF" path="${TC.datalogPath}.stdf" />

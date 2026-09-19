@@ -4,7 +4,7 @@
   <Smartest forceRestart="false" version="soc64_8.7.0.0">
     <ModelFile>./env/model_Smt8</ModelFile>
     <StartMode>OFFLINE</StartMode>
-    <ShowSWC>true</ShowSWC>
+    <ShowSWC>false</ShowSWC>
     <Assignment>
       <!-- Specify environment variables for SmarTest -->
       <Set name="ENV.ST_STARTTIME" value="${ENV.TIMESTAMP}" />
@@ -25,40 +25,35 @@
   <EquipmentControl function="START_PHCONTROL">
     <!-- The first input must be GENERIC_93K_DRIVER -->
     <In>GENERIC_93K_DRIVER</In>
-    <In>/opt/hp93000/testcell/phcontrol/drivers/Generic_93K_Driver/GenericProber/TEL/</In>
-    <In>./env/P12-GPIB-Prober-4-die-256-bin.cfg</In>
-    <!-- Specify the wafer description file in the fourth parameter -->
-    <In>./wafertyp/Wafer_100Dut</In> 
+    <In>/opt/hp93000/testcell/phcontrol/drivers/Generic_93K_Driver/GenericHandler/Seiko-Epson/</In>
+    <In>./env/NS5000-GPIB-4.cfg</In>
    </EquipmentControl>
 <!-- /* _stop_topic_255325_s1 */ -->
 
-   <TestProgram action="RUN" name="TestCase_Smt870/src/TestCase1/TestCase1_4site_cp.prog" workspace="../workspace" lotType="WAFER_TEST" forceActivate="true"/>
+   <TestProgram action="RUN" name="TestCase_Smt870/src/TestCase1/TestCase1_4site_ft.prog" workspace="../workspace" lotType="PACKAGE_TEST" forceActivate="true"/>
 
    <LibraryCall function="LibACS.acs_image_check"/>
 
   <!-- Execute a subrecipe file which specifies detailed lot information -->
   <SubRecipe path="sub.xml" />
   <Assignment>
-     <Set name="TC.LOT_ID" value="K12345.00"/>
+     <Set name="TC.LOT_ID" value="lot1_4site_finaltest"/>
      <Set name="TC.TEMP" value="25C"/>
-     <Set name="TC.PRODUCT_ID" value="V12345"/>
-     <Set name="STDF.LOT_ID" value="${TC.LOT_ID}"/>
-     <Set name="STDF.TEST_COD" value="CP"/>      
+     <Set name="TC.PRODUCT_ID" value="V12345"/> 
+     <Set name="STDF.LOT_ID" value="${TC.LOT_ID}"/>  
+     <Set name="STDF.TEST_COD" value="FT"/>
      <Set name="STDF.JOB_REV" value="V1.0.1"/>
      <Set name="STDF.OPER_NAM" value="UserA"/>
      <Set name="STDF.LOAD_ID" value="BoardA"/>
      <Set name="STDF.PART_TYP" value="PartABC"/>
-     <Set name="STDF.FABWF_ID" value="K12345-01B2"/>
-     <Set name="STDF.FACIL_ID" value="SPIL-3_S"/>
-     <Set name="STDF.ENG_ID" value="ABEe884959#K12345"/>
+     <Set name="STDF.TST_TEMP" value="25"/>
+     <Set name="STDF.FAMLY_ID" value="DeviceA"/>
+    <Set name="STDF.SUPR_NAM" value="CustomerA"/>
      <Set name="TP.run_ore" value="true"/>
      <Set name="TP.wait_enable" value="false"/>
      <Set name="TP.wait_time" value="5"/>
-     <Set name="TP.fail_rate" value="9"/>
+     <Set name="TP.fail_rate" value="0"/>
      <Set name="TP.eng" value="0"/>
-
-     <Set name="WaferCnt" value="1"/>   
-     <Set name="WaferNum" value="0" type="LONG"/>
      <Set name="TDNum" value="0" type="LONG"/>
   </Assignment>
   
@@ -68,35 +63,25 @@
 <LoopCount>1</LoopCount>
     <!-- Send the command to PH for LOAD_LOT -->
     <EquipmentControl function="LOAD_LOT" />      
- 	
-    <Level name="WAFER">
-      <LoopCount>${WaferCnt}</LoopCount>         
-      <EquipmentControl function="LOAD_WAFER" />
-      <Assignment>
+ 	    <Assignment>
         <Set name="TDNum" value="0" type="LONG"/>
-        <Increment name="WaferNum" value="1"/>
-        <Set name="STDF.WAFER_ID" value="W${WaferNum}"/>
-        <Set name="TC.datalogPath" value="/tmp/STDF/datalog_${SYS.TESTPROGRAM_NAME}_${TC.LOT_ID}_W${WaferNum}_${ENV.HOSTNAME}_${ENV.TIMESTAMP}" />
-       </Assignment>   
-       
-      <Datalog action="OPEN" type="STDF" path="${TC.datalogPath}.stdf" />      
-      
+        <Set name="TC.datalogPath" value="/tmp/STDF/datalog_${SYS.TESTPROGRAM_NAME}_${TC.LOT_ID}_${ENV.HOSTNAME}_${ENV.TIMESTAMP}" />
+      </Assignment>   
+      <Datalog action="OPEN" type="STDF" path="${TC.datalogPath}.stdf" />
+      <Datalog action="OPEN" type="EDL" path="${TC.datalogPath}.edl" />
       <Level name="DEVICE">
-        <LoopCount>-1</LoopCount>
+        <LoopCount>20</LoopCount>
         <Assignment>
           <Increment name="TDNum" value="1"/>
-        </Assignment> 
-        <LibraryCall function="LibACS.acs_sot"/>     
+        </Assignment>      
         <EquipmentControl function="LOAD_DEVICE" />
         <LibraryCall function="PartIDLib.autoIncrementPartID"/>
         <Testflow action="ExecuteMainflow"/>
-        <EquipmentControl function="BIN_DEVICE" />
-        <LibraryCall function="LibACS.acs_postbin"/>
+        <EquipmentControl function="BIN_DEVICE" />	     
        </Level>          
-      
-      <EquipmentControl function="UNLOAD_WAFER" />
-      <Datalog action="CLOSE" type="STDF" path="${TC.datalogPath}.stdf" /> 
-    </Level>    
+
+      <Datalog action="CLOSE" type="STDF" path="${TC.datalogPath}.stdf" />
+      <Datalog action="CLOSE" type="STDF" path="${TC.datalogPath}.edl" />
     <!-- After the lot testing is done, send the command to PH for UNLOAD_LOT -->
     <EquipmentControl function="UNLOAD_LOT" />
   </Level>

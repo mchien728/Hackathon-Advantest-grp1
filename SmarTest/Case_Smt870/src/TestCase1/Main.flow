@@ -376,44 +376,50 @@ flow Main {
             {
 
             }
-            suite receive_temp_predict1 calls ACSTML.AdaptiveTest
+            suite receive_temp_predict1 calls ACSTML.Predict
             {
                 debugLevel= 0;
+                predict_num = 1;
                 AppName= "py-app";
                 AppLoc= "edge";
                 messUtil= "util/MessUI";
             }
-            suite receive_temp_predict2 calls ACSTML.AdaptiveTest
+            suite receive_temp_predict2 calls ACSTML.Predict
             {
                 debugLevel= 0;
+                predict_num = 2;
                 AppName= "py-app";
                 AppLoc= "edge";
                 messUtil= "util/MessUI";
             }
-            suite receive_temp_predict3 calls ACSTML.AdaptiveTest
+            suite receive_temp_predict3 calls ACSTML.Predict
             {
                 debugLevel= 0;
+                predict_num = 3;
                 AppName= "py-app";
                 AppLoc= "edge";
                 messUtil= "util/MessUI";
             }
-            suite receive_temp_predict4 calls ACSTML.AdaptiveTest
+            suite receive_temp_predict4 calls ACSTML.Predict
             {
                 debugLevel= 0;
+                predict_num = 4;
                 AppName= "py-app";
                 AppLoc= "edge";
                 messUtil= "util/MessUI";
             }
-            suite receive_temp_predict5 calls ACSTML.AdaptiveTest
+            suite receive_temp_predict5 calls ACSTML.Predict
             {
                 debugLevel= 0;
+                predict_num = 5;
                 AppName= "py-app";
                 AppLoc= "edge";
                 messUtil= "util/MessUI";
             }
-            suite receive_temp_predict6 calls ACSTML.AdaptiveTest
+            suite receive_temp_predict6 calls ACSTML.Predict
             {
                 debugLevel= 0;
+                predict_num = 6;
                 AppName= "py-app";
                 AppLoc= "edge";
                 messUtil= "util/MessUI";
@@ -432,34 +438,34 @@ flow Main {
            Suite3.execute();
            Suite4.execute();
            Suite5.execute();
-//           Suite6.execute();
-//           Suite7.execute();
-//           Suite8.execute();
-//           Suite9.execute();
-//           Suite10.execute();
-//           Suite11.execute();
-//           Suite12.execute();
-//           Suite13.execute();
-//           Suite14.execute();
-//           IDDQ_flow.execute();
-//           receive_temp_predict1.execute();
-//           sensor1.execute();
-//           subflow1.execute();
-//           receive_temp_predict2.execute();
-//           sensor2.execute();
-//           subflow2.execute();
-//           receive_temp_predict3.execute();
-//           sensor3.execute();
-//           subflow3.execute();
-//           receive_temp_predict4.execute();
-//           sensor4.execute();
-//           subflow4.execute();
-//           receive_temp_predict5.execute();
-//           sensor5.execute();
-//           subflow5.execute();
-//           receive_temp_predict6.execute();
-//           sensor6.execute();
-//           subflow6.execute();
+           Suite6.execute();
+           Suite7.execute();
+           Suite8.execute();
+           Suite9.execute();
+           Suite10.execute();
+           Suite11.execute();
+           Suite12.execute();
+           Suite13.execute();
+           Suite14.execute();
+           IDDQ_flow.execute();
+           receive_temp_predict1.execute();
+           sensor1.execute();
+           subflow1.execute();
+           receive_temp_predict2.execute();
+           sensor2.execute();
+           subflow2.execute();
+           receive_temp_predict3.execute();
+           sensor3.execute();
+           subflow3.execute();
+           receive_temp_predict4.execute();
+           sensor4.execute();
+           subflow4.execute();
+           receive_temp_predict5.execute();
+           sensor5.execute();
+           subflow5.execute();
+           receive_temp_predict6.execute();
+           sensor6.execute();
+           subflow6.execute();
            if(testProgramVariables.getLong("sim_result") < testProgramVariables.getLong("fail_rate"))
            {
                addBin(30);

@@ -1,6 +1,0 @@
-2026-08-13 10:21:08	Info	EdgeLog V1.0.0 2026/08/13
-2026-08-13 10:21:08	Info	Host ip: 180.3.5.29
-2026-08-13 10:21:08	Info	EdgeLog Usage:
- ./EdgeLog rev                           # Get customer's container list
- ./EdgeLog log                           # Get customer's container list
-

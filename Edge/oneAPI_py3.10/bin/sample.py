@@ -97,6 +97,7 @@ class SampleMonitor(Monitor):
         Monitor.__init__(self)
         self.mTouchdownCnt = 0
         self.fileTransfer = FileTransfer.FileTransfer()
+        self.sites =[]
 
     # derive callback func for NexusTPI::send
     def consumeTPSend(self, tc, data):
@@ -106,8 +107,7 @@ class SampleMonitor(Monitor):
     
     # derive callback func for NexusTPI::request
     def consumeTPRequest(self, tc, request):        
-        #ActionManager.set_message(tc.testerId,wait_time,reason)      
-        #ActionManager.set_wait(tc.testerId,wait_time,reason)           
+         
         print(f"Received request from {tc.testerId} {tc.testerIP}, command is {request}")
         jsonObj = json.loads(request)
         key  = jsonObj.get("key")
@@ -121,6 +121,18 @@ class SampleMonitor(Monitor):
         if key == "timeout":
             timeout = int(data) + 1
             time.sleep(timeout)
+        elif key=="predict":
+            wait=10
+            predict_num = data
+            #trigger to run prediction based on predict_num and get results of all sites
+            message=f'prediction {predict_num}:'
+            for site in self.sites:
+                #
+                value =25.22                
+                message +=f' ({site},{value})'
+            ActionManager.set_wait(tc.testerId,wait,message)  
+            response = ActionManager.get(tc.testerId)       
+            
         elif key == "prod_action":
             response = ActionManager.get_prod(tc.testerId)
             print(f"Get production Action: {response}")    
@@ -252,11 +264,14 @@ class SampleMonitor(Monitor):
     def consumeTestStart(self, data):
         print(sys._getframe().f_code.co_name)
         self.mTouchdownCnt += 1
+        self.sites =[]
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         cnt = data.get_ResultCount()
         print(f"get_ResultCount = {cnt}")
         for index in range(0, cnt):
             tempU32 = data.query_HeadSite(index)
+            ### Get Active Site Number
+            self.sites.append(toSite(tempU32))
             print(f"Head = {toHead(tempU32)} Site = {toSite(tempU32)}")
             print(f"query_XCoord = {data.query_XCoord(index)}")
             print(f"query_YCoord = {data.query_YCoord(index)}")
@@ -278,6 +293,8 @@ class SampleMonitor(Monitor):
             print(f"query_TestTime = {data.query_TestTime(index)}")
             print(f"query_PartId = {data.query_PartId(index)}")
             print(f"query_PartText = {data.query_PartText(index)}")
+
+        
 
     def consumeTestFlowStart(self, data):
         print(sys._getframe().f_code.co_name)
@@ -476,6 +493,11 @@ class SampleMonitor(Monitor):
             self.consumeTestStart(data)
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTEND:
             self.consumeTestEnd(data)
+            
+            if self.mTouchdownCnt %3 ==0:
+                ActionManager.set_message(tc.testerId,f'TD {self.mTouchdownCnt} Site 1 Abnormal Happen')            
+        
+        
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTFLOWSTART:
             self.consumeTestFlowStart(data)
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTFLOWEND:
