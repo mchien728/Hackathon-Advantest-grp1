@@ -96,3 +96,10 @@
 - [ ] 前端（任務 D）尚未做，可用 `tools/demo_state.py` 與 `Scenario1.get_state()` 的輸出開發
 - [ ] `sample.py` 內原有他人加入的 `predict` 分支與 `self.sites` 保留未動；commit 前請確認沒有與隊友衝突
 - [ ] 請人 code review 後再 merge；尚未 commit
+
+## 第八輪：資料路徑、後端主動推送、去除假的第二個標籤（2026-09-20）
+- **訓練資料路徑**：資料已移到 `SmarTest/training/`（`Data/` 與 `TrainDataInfo.txt`）。三個測試檔（`test_scenario1/2`、`test_sensor_predictor`）的 `DATA_DIR` 改為只認這個路徑；工具的 `--data`、`--labels` 一律由指令傳入，沒有預設路徑。指令範例：`python3 tools/eval_wafers.py --data ../../SmarTest/training/Data --labels ../../SmarTest/training/TrainDataInfo.txt`。
+- **後端主動 POST 給前端**：新增 `bin/pusher.py`（`StatePusher`，只用標準函式庫的背景執行緒）。設定 `ACS_FRONTEND_URL`（例如容器內 `http://127.0.0.1:5000/api/state`）後，`main.py` 會每 `ACS_PUSH_INTERVAL` 秒（預設 3）把 `get_state()` 用 `POST` 送出，本文為 JSON，另加 `seq`（遞增）與 `sent_at`（秒）；沒設定網址就不推送。前端連不上不會影響事件處理：只在第 1、10、之後每 100 次連續失敗時記錄，恢復時記錄一次；網址只接受 `http://`、`https://`。`tools/mock_frontend.py` 是測試用的接收端（`POST /api/state` 存下、`GET /api/state` 回傳最新一筆）。本機驗證：真實 `SampleMonitor` 加 W14 事件，19 次推送 19 次收到、0 失敗；新增 6 個測試（`tests/test_pusher.py`）。尚未在機台上跑，也還沒有真正的前端伺服器。
+- **去除假的第二個標籤**：`detector.py` `_group_counts` 中，已被判為 site 失衡的測項不再算進「平均值趨勢」與「波動變大」的計數（第 456–461 行）。W1 的平均值趨勢計數由 53 降為 6，訓練 wafer 不再出現雙標籤；留一片驗證仍 24/25，壓力測試不變；兩個獨立異常（不同測項）仍保留兩個標籤（`tests/test_detector.py` 新增 2 個測試）。
+- 全部測試 81 個，只有既有的 `test_list_request_returns_seeded_message` 失敗。
+

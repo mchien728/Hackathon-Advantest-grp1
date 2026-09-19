@@ -253,3 +253,38 @@ class Scenario2:
 
 **仍會 `not_ready` 的 sensor（類型 B 未解決）**：sensor1 缺 4 個、sensor2 缺 3 個、sensor4／5／6 各缺 `Suite9_1#S0`。補上訓練中位數的試算（樣本內）：這 4 個特徵補值後 MAE 變化 ≤ 0.0002，但尚未做保留集驗證，且與「缺特徵不編造」原則衝突，需決定；另一條路是移除這 4 個特徵重新訓練，或向主辦方確認評分用的流程是否執行它們。
 **sensor3 機台誤差**：80 筆（TD×site）MAE 0.083、平均偏差 −0.083（全部偏低），實測標準差 0.247；離線交叉驗證的預期約 0.02 以下。機台重播資料不等於任何一片訓練 wafer，原因（分佈不同或其他）未確認。
+
+---
+
+## 15. 新版 sensor 1、sensor 5 模型的本機評估（2026-09-20）
+
+**備份**：原本的 sensor1、sensor5 已備份到 `Edge/oneAPI_py3.10/model_backup/20260920_original_sensor1_sensor5/`（原 `.joblib`、執行期用的 `.npz`、`runtime_manifest.json`、`SHA256SUMS.txt`，逐位元核對一致）。此資料夾在 `bin/` 之外，不會被打包進映像檔。
+
+**新模型**（放在 `bin/model/sensors/`）：
+| 檔案 | 內容 |
+|---|---|
+| `sensor1_generalized.joblib` | Huber 迴歸（α=0.001），29 個特徵，標準化器另存於檔內（不是管線的一部分）；交叉驗證 MAE 0.00301 |
+| `sensor5_delta.joblib` | 預測「sensor5 − sensor4」的差值，Ridge(α=0.01)，200 個特徵；**執行期公式：`sensor5 預測 = 實測的 sensor4 + 模型預測`**；交叉驗證 MAE 0.00258 |
+
+**評估結果（本機，與訓練時相同版本的套件）**
+| 項目 | sensor 1：舊 → 新 | sensor 5：舊 → 新 |
+|---|---|---|
+| bundle 內的交叉驗證 MAE | 0.00348 → 0.00301 | 0.0546 → **0.00258** |
+| 訓練 wafer（樣本內）MAE | 0.0032 → 0.0028 | 0.0061 → 0.0023 |
+| **B13456 第 2 片 wafer MAE**（訓練批以外的批號） | 0.383 → 0.401（**沒有改善**） | 0.433 → **0.0076（改善 98%）** |
+| 時序檢查 | 全部特徵在目標之前 | 全部特徵與參考 sensor4 都在目標之前 |
+
+- sensor 5：差值模型的效果極大，而且符合物理直覺（sensor5 與 sensor4 很接近，只需預測小的差值）。執行期要求 sensor4 的實測值已到達；到不齊時回 `not_ready`。
+- sensor 1：對這片 wafer 仍有約 +0.40 的固定偏移，新模型沒有改善；sensor 1 是最先測的 sensor，只有 29 個前面的測項可用，沒有更早的 sensor 可當參考。
+- 「B13456 沒有用來調參」是檔案內 `training_policy` 的說法，我無法獨立驗證；B13456 只有一片 wafer，樣本很少。
+
+**支援新格式的程式修改**：`tools/export_sensor_models.py`（Huber 與獨立標準化器、`--override SENSOR=FILE`、記錄 `mode`/`reference`）、`bin/predictor.py`（`reference()`、`predict(sensor, x, ref)`，缺參考值時拒絕預測）、`bin/scenario2.py`（從每個 site 的暫存取出參考值並納入缺值檢查）、`tools/check_sensor_export.py`（改為支援新格式；sklearn 參考實作 `predict_bundle` 放在這個檔案裡）。新舊模型的一次性比較腳本（`compare_sensor_models.py`）已刪除，結果記錄在本節。
+
+**驗證**：轉成 numpy 的 v2 與 sklearn 逐筆比對（2000 顆 die × 6 個 sensor）最大差距約 1e-14；B13456 依真實流程順序經 `Scenario2` 重播，120 次請求全部有回覆；測試共 86 個，只有既有的 1 個失敗。**已切換（2026-09-20）**：使用中的 `bin/model/sensors/` 現在是新版（sensor 1 為 Huber、sensor 5 為差值模型，`manifest.json` 與 `sensor1.npz`、`sensor5.npz` 已重新產生；2、3、4、6 與原本逐位元相同）。過程中曾有一次 `manifest.json` 與新的 `sensor5.npz` 不一致（特徵數 400 對 200），預測器因此拒絕載入並讓所有請求回 `not_ready`，重新轉換後已修復。兩個新的 `.joblib` 另存於 `model_backup/20260920_new_sensor1_sensor5/`，原本的兩個舊模型在 `model_backup/20260920_original_sensor1_sensor5/`；`bin/model/sensors/` 內的兩個 `.joblib` 執行期不會讀，建議移出 `bin/`。測試共 84 個，只有既有的 1 個失敗。
+
+**切換方式**：把 `bin/model/sensors_v2/` 的 `sensor1.npz`、`sensor5.npz`、`manifest.json` 複製到 `bin/model/sensors/`（或把 `predictor.py` 的預設資料夾改成 `sensors_v2`）。
+
+**manifest.json 的用途**：`bin/final_models/manifest.json`（隊友的，825 位元組）只有 `tools/validate_sensor_models.py` 會讀，執行期不用；`bin/model/sensors/manifest.json`（匯出工具產生）是**執行期必讀**：`predictor.py` 靠它知道每個 sensor 的檔名、目標、特徵順序與參考 sensor，缺少它模型就載入失敗（`predictor_error`，所有請求回 `not_ready`）。
+
+**更新（2026-09-20）**：sensor 1 已改回原本的 Ridge（由 `bin/final_models/sensor1.joblib` 重新轉換，與備份的原版 `sensor1.npz` 逐位元相同）；sensor 5 維持新的差值模型。B13456 各 sensor 的 MAE：1=0.3829、2=0.0200、3=0.0832、4=0.0446、5=0.0076、6=0.0548。轉換工具改為「全部模型都成功後才寫檔」，避免中途失敗留下部分更新、`manifest.json` 與 `.npz` 不一致的情況（曾發生一次，預測器因此拒絕載入）。
+

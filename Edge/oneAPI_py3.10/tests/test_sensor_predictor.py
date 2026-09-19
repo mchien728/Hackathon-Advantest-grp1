@@ -11,10 +11,9 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from predictor import SensorPredictor, normalize  # noqa: E402
 
 _ROOT = os.path.join(HERE, "..", "..", "..")
-DATA_DIR = next((d for d in (os.path.join(_ROOT, "training", "training", "Data"), os.path.join(_ROOT, "SmarTest", "training", "Data")) if os.path.isdir(d)),
-                os.path.join(_ROOT, "training", "training", "Data"))
+DATA_DIR = os.path.join(_ROOT, "SmarTest", "training", "Data")
 FIXTURE = os.path.join(HERE, "fixtures", "sensor_reference.json")
-EXPECTED_FEATURES = {1: 29, 2: 400, 3: 20, 4: 600, 5: 400, 6: 800}
+EXPECTED_FEATURES = {1: 29, 2: 400, 3: 20, 4: 600, 5: 200, 6: 800}
 TARGETS = {1: "Main.sensor1#CP", 2: "Main.sensor2#DS0", 3: "Main.sensor3#IO4", 4: "Main.sensor4#IO1", 5: "Main.sensor5#IO2", 6: "Main.sensor6#IO3"}
 
 
@@ -25,6 +24,8 @@ class SensorPredictorTest(unittest.TestCase):
 
     def test_loads_all_six_models_without_sklearn(self):
         self.assertIsNone(self.pred.load_error)
+        self.assertEqual(self.pred.reference(5), "Main.sensor4#IO1")
+        self.assertIsNone(self.pred.reference(1))
         self.assertEqual({s: len(self.pred.required(s)) for s in self.pred.models}, EXPECTED_FEATURES)
         self.assertEqual({s: self.pred.target(s) for s in self.pred.models}, TARGETS)
         self.assertNotIn("sklearn", sys.modules.get("predictor").__dict__)
@@ -66,8 +67,8 @@ class SensorPredictorTest(unittest.TestCase):
             for s, expect in preds.items():
                 s = int(s)
                 x = np.array([wf["values"][d, index[f]] for f in self.pred.required(s)])
-                tol = 1e-6 if s == 5 else 1e-9
-                self.assertAlmostEqual(self.pred.predict(s, x), expect, delta=tol, msg=f"{dev} sensor {s}")
+                r = wf["values"][d, index[self.pred.reference(s)]] if self.pred.reference(s) else None
+                self.assertAlmostEqual(self.pred.predict(s, x, r), expect, delta=1e-9, msg=f"{dev} sensor {s}")
 
     @unittest.skipUnless(os.path.isdir(DATA_DIR), "training data not present")
     def test_every_feature_occurs_before_its_target(self):
@@ -77,6 +78,25 @@ class SensorPredictorTest(unittest.TestCase):
         for s in self.pred.models:
             t = pos[self.pred.target(s)]
             self.assertTrue(all(pos[f] < t for f in self.pred.required(s)), f"sensor {s} uses a later test")
+            if self.pred.reference(s):
+                self.assertLess(pos[self.pred.reference(s)], t, f"sensor {s} reference is measured later than the target")
+
+
+class DeltaModelTest(unittest.TestCase):
+    def test_delta_model_adds_the_measured_reference_value_and_refuses_without_it(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            np.savez(os.path.join(d, "sensor1.npz"), kind=np.array("ridge"), w=np.array([2.0, 1.0]), b=np.array(0.5))
+            json.dump({"sensors": {"1": {"file": "sensor1.npz", "target": "Main.sensor2#X", "model": "Ridge", "features": ["Main.a#P", "Main.b#P"],
+                                         "mode": "delta_from_sensor1", "reference": "Main.sensor1#Y"}}}, open(os.path.join(d, "manifest.json"), "w"))
+            p = SensorPredictor.load(d)
+            self.assertIsNone(p.load_error)
+            self.assertEqual(p.reference(1), "Main.sensor1#Y")
+            self.assertIn("Main.sensor1#Y", p.key_index)
+            self.assertAlmostEqual(p.predict(1, [1.0, 2.0], 30.0), 2.0 * 1.0 + 2.0 + 0.5 + 30.0)
+            for bad in (None, float("nan")):
+                with self.assertRaises(ValueError):
+                    p.predict(1, [1.0, 2.0], bad)
 
 
 if __name__ == "__main__":

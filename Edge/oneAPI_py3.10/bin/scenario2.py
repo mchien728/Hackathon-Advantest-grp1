@@ -46,13 +46,15 @@ class Scenario2:
             reason = self.pred.load_error or f"unknown sensor {sensor}"
             return self._record(sensor, "", sites, {s: None for s in sites}, {s: -1 for s in sites}, t0, f"prediction {sensor}: not_ready ({reason})"[:200])
         cols = m["cols"]
+        ref_col = self.pred.key_index[m["reference"]] if m["reference"] else None
+        extra_ref = ref_col is not None and ref_col not in set(cols.tolist())
         deadline = t0 + self.wait_ms / 1000.0
         while True:
-            missing = {s: int(np.isnan(self.store[s, cols]).sum()) for s in sites}
+            missing = {s: int(np.isnan(self.store[s, cols]).sum()) + (int(np.isnan(self.store[s, ref_col])) if extra_ref else 0) for s in sites}
             if not any(missing.values()) or time.perf_counter() >= deadline:
                 break
             time.sleep(0.02)
-        values = {s: self.pred.predict(sensor, self.store[s, cols]) if not missing[s] else None for s in sites}
+        values = {s: self.pred.predict(sensor, self.store[s, cols], self.store[s, ref_col] if ref_col is not None else None) if not missing[s] else None for s in sites}
         parts = [f"({s},{v:.3f})" if v is not None else f"({s},not_ready:{missing[s]})" for s, v in values.items()]
         return self._record(sensor, m["target"], sites, values, missing, t0, f"prediction {sensor}: " + " ".join(parts))
 

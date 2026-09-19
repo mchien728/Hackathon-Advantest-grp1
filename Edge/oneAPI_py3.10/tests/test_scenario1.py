@@ -10,8 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import test_sample_local as harness  # noqa: E402  (installs fake oneapi / libACSAction modules)
 
 _ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
-DATA_DIR = next((d for d in (os.path.join(_ROOT, "training", "training", "Data"), os.path.join(_ROOT, "SmarTest", "training", "Data")) if os.path.isdir(d)),
-                os.path.join(_ROOT, "training", "training", "Data"))
+DATA_DIR = os.path.join(_ROOT, "SmarTest", "training", "Data")
 
 
 class FakeMulti:

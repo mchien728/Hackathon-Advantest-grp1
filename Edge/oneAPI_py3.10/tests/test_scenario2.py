@@ -16,8 +16,7 @@ from predictor import SensorPredictor  # noqa: E402
 from scenario2 import Scenario2  # noqa: E402
 
 _ROOT = os.path.join(HERE, "..", "..", "..")
-DATA_DIR = next((d for d in (os.path.join(_ROOT, "training", "training", "Data"), os.path.join(_ROOT, "SmarTest", "training", "Data")) if os.path.isdir(d)),
-                os.path.join(_ROOT, "training", "training", "Data"))
+DATA_DIR = os.path.join(_ROOT, "SmarTest", "training", "Data")
 HAVE_DATA = os.path.isdir(DATA_DIR)
 
 
@@ -51,7 +50,8 @@ class Scenario2FlowTest(unittest.TestCase):
 
     def expected(self, sensor, row):
         x = [self.w["values"][row, self.index[f]] for f in self.pred.required(sensor)]
-        return self.pred.predict(sensor, x)
+        ref = self.w["values"][row, self.index[self.pred.reference(sensor)]] if self.pred.reference(sensor) else None
+        return self.pred.predict(sensor, x, ref)
 
     def test_each_sensor_is_ready_at_its_request_time_and_sites_do_not_mix(self):
         rows = [0, 1, 2, 3]
@@ -129,6 +129,41 @@ class Scenario2EdgeCaseTest(unittest.TestCase):
         self.assertIn("No such file", res["message"])
         self.assertIsNotNone(s2.state()["predictor_error"])
         s2.observe("Main.Suite1", "CP", 1, 1.0)
+
+
+@unittest.skipUnless(HAVE_DATA, "training data not present")
+class Scenario2DeltaFlowTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.w = load_wafer(1)
+        cls.index = {k: i for i, k in enumerate(cls.w["keys"])}
+        cls.pred = SensorPredictor.load()
+
+    def feed(self, s2, rows, upto, skip=None):
+        for site, row in enumerate(rows, start=1):
+            for j in range(upto):
+                if self.w["keys"][j] != skip:
+                    s2.observe(*split(self.w["keys"][j]), site, self.w["values"][row, j])
+
+    def test_sensor5_uses_the_measured_sensor4_and_matches_the_reference(self):
+        s2 = Scenario2(self.pred, wait_ms=50)
+        s2.test_start(1)
+        rows = [0, 1, 2, 3]
+        self.feed(s2, rows, self.index[self.pred.target(5)])
+        res = s2.predict(5, [1, 2, 3, 4])
+        self.assertTrue(res["ready"], res["message"])
+        for site, row in enumerate(rows, start=1):
+            x = [self.w["values"][row, self.index[f]] for f in self.pred.required(5)]
+            r = self.w["values"][row, self.index[self.pred.reference(5)]]
+            self.assertAlmostEqual(res["values"][site], self.pred.predict(5, x, r), places=9)
+
+    def test_sensor5_is_not_ready_when_the_sensor4_measurement_has_not_arrived(self):
+        s2 = Scenario2(self.pred, wait_ms=60)
+        s2.test_start(1)
+        self.feed(s2, [0], self.index[self.pred.target(5)], skip=self.pred.reference(5))
+        res = s2.predict(5, [1])
+        self.assertFalse(res["ready"])
+        self.assertIn("not_ready:1", res["message"])
 
 
 class FakeResults:

@@ -453,10 +453,13 @@ class Detector:
         def slot(key):
             return groups.setdefault(group_of(key), {"up": 0, "down": 0, "var": 0, "site": 0, "sites": {}})
 
+        explained = self._fired["site_cls"]
         for k, d in first.items():
-            slot(k)["up" if d > 0 else "down"] += 1
+            if k not in explained:
+                slot(k)["up" if d > 0 else "down"] += 1
         for k in self._fired["variance_cls"]:
-            slot(k)["var"] += 1
+            if k not in explained:
+                slot(k)["var"] += 1
         for k, site in self._fired["site_cls"].items():
             g = slot(k)
             g["site"] += 1

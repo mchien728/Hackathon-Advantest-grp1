@@ -36,13 +36,13 @@ class SensorPredictor:
                     impl = {"kind": kind, **{k: z[k] for k in ("roots", "feature", "threshold", "left", "right", "value", "is_leaf", "missing_left")}, "baseline": float(z["baseline"])}
                 else:
                     raise ValueError(f"unknown model kind {kind}")
-                impl.update(target=m["target"], model=m["model"], features=list(m["features"]))
+                impl.update(target=m["target"], model=m["model"], features=list(m["features"]), reference=m.get("reference"))
                 if kind == "ridge" and len(impl["w"]) != len(impl["features"]):
                     raise ValueError(f"sensor {s}: coefficient count does not match feature count")
                 p.models[int(s)] = impl
             seen = {}
             for s in sorted(p.models):
-                for f in p.models[s]["features"]:
+                for f in p.models[s]["features"] + ([p.models[s]["reference"]] if p.models[s]["reference"] else []):
                     seen.setdefault(f, len(seen))
             p.keys, p.key_index = list(seen), seen
             for s, m in p.models.items():
@@ -62,8 +62,18 @@ class SensorPredictor:
     def target(self, sensor):
         return self.models[sensor]["target"]
 
-    def predict(self, sensor, x):
+    def reference(self, sensor):
+        return self.models[sensor]["reference"]
+
+    def predict(self, sensor, x, ref=None):
         m = self.models[sensor]
+        if m["reference"]:
+            if ref is None or not np.isfinite(ref):
+                raise ValueError(f"sensor {sensor}: needs the measured value of {m['reference']} (delta model)")
+            return self._predict_core(sensor, m, x) + float(ref)
+        return self._predict_core(sensor, m, x)
+
+    def _predict_core(self, sensor, m, x):
         x = np.asarray(x, dtype=np.float64)
         if x.shape != (len(m["features"]),):
             raise ValueError(f"sensor {sensor} needs {len(m['features'])} values, got shape {x.shape}")

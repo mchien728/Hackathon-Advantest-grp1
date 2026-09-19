@@ -238,6 +238,34 @@ class DetectorTest(unittest.TestCase):
     def test_info_reports_baseline_size(self):
         self.assertEqual(Detector(BASE).info(), {"monitored_tests": 5, "baseline_tests": 5, "load_error": None})
 
+    def _two_groups(self, ramp_group, site_group=True):
+        import random as _r
+        a = [f"Main.subflowA.S{i}#CP" for i in range(40)]
+        b = [f"Main.subflowB.S{i}#CP" for i in range(40)]
+        base = {k: {"mu": 0.0, "sigma": 1.0, "monitor": True} for k in a + b}
+        det = Detector(base, {"off_min_n": 20})
+        rng = _r.Random(4)
+        for td in range(14):
+            for key in a + b:
+                for site in (1, 2, 3, 4):
+                    x = rng.gauss(0.0, 1.0)
+                    if site_group and key in a and site == 4 and td >= 2:
+                        x -= 8.0
+                    if ramp_group and key in b and 4 <= td < 10:
+                        x += 1.5 * (td - 3)
+                    det.update(key, site, x, td)
+            det.end_touchdown()
+        return det.end_wafer()
+
+    def test_site_imbalance_is_not_double_counted_as_a_mean_trend(self):
+        r = self._two_groups(ramp_group=False)
+        self.assertEqual(r["labels"], ["Site unbalance"])
+
+    def test_two_independent_anomalies_keep_both_labels(self):
+        r = self._two_groups(ramp_group=True)
+        self.assertEqual(r["labels"], ["Site unbalance", "Mean Trend Up"])
+        self.assertEqual(r["label"], "Site unbalance")
+
 
 if __name__ == "__main__":
     unittest.main()
