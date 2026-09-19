@@ -195,38 +195,155 @@ def fake_get_state():
         ],
 
 
-        "wafer_map": {
-            "wafer": "W01",
-            "columns": [
-                "td",
-                "site",
-                "x",
-                "y",
-                "sbin",
-                "passed",
-                "suspect"
-            ],
-            "rows": [
-                [1, 1, 6, 0, 1, True, False],
-                [1, 2, 9, 4, 1, True, False],
-                [1, 3, 3, 3, 1, True, False],
-                [1, 4, 3, 5, 1, True, False],
+                "wafer_map": {
+                    "wafer": "W01",
+                    "columns": [
+                        "td",
+                        "site",
+                        "x",
+                        "y",
+                        "sbin",
+                        "passed",
+                        "suspect"
+                    ],
+                    "rows": [
+                        [1, 1, 6, 0, 1, True, False],
+                        [1, 2, 9, 4, 1, True, False],
+                        [1, 3, 3, 3, 1, True, False],
+                        [1, 4, 3, 5, 1, True, False],
 
-                [2, 1, 4, 1, 1, True, False],
-                [2, 2, 5, 2, 1, True, False],
-                [2, 3, 5, 4, 1, True, True],
-                [2, 4, 8, 5, 1, True, False],
+                        [2, 1, 4, 1, 1, True, False],
+                        [2, 2, 5, 2, 1, True, False],
+                        [2, 3, 5, 4, 1, True, True],
+                        [2, 4, 8, 5, 1, True, False],
 
-                [3, 1, 1, 5, 1, True, False],
-                [3, 2, 6, 3, 2, False, False],
-                [3, 3, 8, 1, 1, True, False],
-                [3, 4, 4, 5, 1, True, False]
-            ],
-            "extent": {
-                "x": [0, 11],
-                "y": [0, 8]
-            }
-        }
+                        [3, 1, 1, 5, 1, True, False],
+                        [3, 2, 6, 3, 2, False, False],
+                        [3, 3, 8, 1, 1, True, False],
+                        [3, 4, 4, 5, 1, True, False]
+                    ],
+                    "extent": {
+                        "x": [0, 11],
+                        "y": [0, 8]
+                    }
+                },
+
+                # Temporary data for new wafer dashboard UI
+                "wafers": [
+                    {
+                        "id": "001_W01",
+                        "wafer": "W01",
+                        "current": True,
+
+                        "label": "Mean Trend Up",
+                        "labels": ["Mean Trend Up"],
+                        "headline": "Mean Trend Up",
+
+                        "onset_td": 3,
+                        "confidence": 0.786,
+                        "yield": 0.8375,
+
+                        "touchdowns": 20,
+                        "devices": 80,
+
+                        "criteria": [
+                            {
+                                "key": "site_unbalance",
+                                "label": "Site unbalance",
+                                "value": 2,
+                                "threshold": 20,
+                                "triggered": False,
+                                "trigger_when": "at_least",
+                                "group": None,
+                                "direction": None,
+                                "worst_site": None,
+                                "onset_td": None,
+                                "enough_data": True,
+                                "by_site": {
+                                    "1": 1,
+                                    "3": 1
+                                }
+                            },
+
+                            {
+                                "key": "mean_trend",
+                                "label": "Mean Trend Up",
+                                "value": 110,
+                                "threshold": 30,
+                                "triggered": True,
+                                "trigger_when": "at_least",
+                                "group": "Main.subflow2",
+                                "direction": "up",
+                                "worst_site": None,
+                                "onset_td": 3,
+                                "enough_data": True
+                            },
+
+                            {
+                                "key": "stdev_up",
+                                "label": "Stdev Trend Up",
+                                "value": 2,
+                                "threshold": 20,
+                                "triggered": False,
+                                "trigger_when": "at_least",
+                                "group": None,
+                                "direction": None,
+                                "worst_site": None,
+                                "onset_td": None,
+                                "enough_data": True
+                            },
+
+                            {
+                                "key": "yield",
+                                "label": "Low yield",
+                                "value": 0.8375,
+                                "threshold": 0.8,
+                                "triggered": False,
+                                "trigger_when": "below",
+                                "group": None,
+                                "direction": None,
+                                "worst_site": None,
+                                "onset_td": None,
+                                "enough_data": True
+                            }
+                        ],
+
+                        "sites": [
+                            {
+                                "site": 1,
+                                "dies": 20,
+                                "fail_dies": 3,
+                                "suspect_dies": 4,
+                                "imbalance_tests": 1,
+                                "worst": False
+                            },
+                            {
+                                "site": 2,
+                                "dies": 20,
+                                "fail_dies": 1,
+                                "suspect_dies": 2,
+                                "imbalance_tests": 0,
+                                "worst": False
+                            },
+                            {
+                                "site": 3,
+                                "dies": 20,
+                                "fail_dies": 1,
+                                "suspect_dies": 2,
+                                "imbalance_tests": 1,
+                                "worst": False
+                            },
+                            {
+                                "site": 4,
+                                "dies": 20,
+                                "fail_dies": 1,
+                                "suspect_dies": 3,
+                                "imbalance_tests": 0,
+                                "worst": False
+                            }
+                        ]
+                    }
+                ]
     }
 
 
