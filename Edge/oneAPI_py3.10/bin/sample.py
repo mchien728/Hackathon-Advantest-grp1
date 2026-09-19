@@ -106,6 +106,7 @@ class SampleMonitor(Monitor):
         self.s1 = Scenario1()
         self.s2 = Scenario2()
         self._pin_cache = {}
+        self._tp_testers = set()
 
     def get_state(self):
         state = self.s1.get_state()
@@ -125,6 +126,15 @@ class SampleMonitor(Monitor):
             print(f"predict failed: {traceback.format_exc()}")
             return f"prediction {data}: error {type(e).__name__}"[:200]
 
+    def _send_message(self, data_tester, msg):
+        # Actions are stored per tester name; the predict requests use a different name than the data events, so send to both.
+        for tester in dict.fromkeys([data_tester, *sorted(self._tp_testers)]):
+            try:
+                ok = ActionManager.set_message(tester, msg)
+            except Exception:
+                ok = traceback.format_exc()
+            print(f"set_message tester={tester} ok={ok} msg={msg}")
+
     def _safe(self, fn, *args):
         try:
             return fn(*args)
@@ -141,6 +151,7 @@ class SampleMonitor(Monitor):
     def consumeTPRequest(self, tc, request):
 
         print(f"Received request from {tc.testerId} {tc.testerIP}, command is {request}")
+        self._tp_testers.add(tc.testerId)
         jsonObj = json.loads(request)
         key  = jsonObj.get("key")
         data = jsonObj.get("data")        
@@ -591,7 +602,7 @@ class SampleMonitor(Monitor):
             self.consumeTestSuiteEnd(data)
         msg = self.s1.pop_message()
         if msg:
-            ActionManager.set_message(tc.testerId, msg)
+            self._send_message(tc.testerId, msg)
 
     def download_from_sftp(self, local_path, remote_file_name):
         try:
