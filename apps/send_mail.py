@@ -2,7 +2,6 @@ import resend
 import os
 from jinja2 import Environment, FileSystemLoader
 
-resend.api_key = "re_YUAJpFEd_JWtExe6zutj1iWp5gpDyu1bs"
 
 def get_wafer_grid(state):
     wafer_map = state.get("wafer_map", {})
@@ -70,12 +69,13 @@ def build_email_html(state):
         wafer_grid=wafer_grid
     )
 
-def send_dashboard_email(state):
+def send_dashboard_email(state, email):
+    resend.api_key = os.getenv("RESEND_KEY")
     html = build_email_html(state)
 
     r = resend.Emails.send({
         "from": "Advantest Monitor <onboarding@resend.dev>",
-        "to": ["zhixuan900422@gmail.com"],
+        "to": [email],
         "subject": f"[Advantest Alert] {state.get('wafer')} - {state.get('label')}",
         "html": html
     })
@@ -185,4 +185,4 @@ if __name__ == "__main__":
     # 再真的寄信
     # =========================
 
-    send_dashboard_email(test_state)
+    send_dashboard_email(test_state, "zhixuan900422@gmail.com")

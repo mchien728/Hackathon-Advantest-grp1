@@ -4,7 +4,11 @@ import logging
 import os
 import json
 
+from send_mail import send_dashboard_email
+
 state_data = {}
+last_error_type = None
+user_email = None
 
 def create_app():
     app = Flask(__name__)
@@ -27,8 +31,14 @@ def create_app():
     def api_state():
         if request.method == "POST":
             try:
-                global state_data
+                global state_data, last_error_type, user_email
                 state_data = request.get_json()
+                if "label" in state_data:
+                    label = state_data["label"]
+                    if label != "Normal" and label != last_error_type:
+                        last_error_type = label
+                        if user_email:
+                            send_dashboard_email(state_data, user_email)
                 return state_data, 200
             except Exception as e:
                 logging.exception("Failed to get dashboard state")
