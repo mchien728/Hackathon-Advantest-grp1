@@ -5,6 +5,7 @@
 from oneapi import Interface
 from oneapi import AppInfo
 from sample import SampleMonitor
+from pusher import StatePusher
 # from sample import sendCommand
 import signal
 import sys
@@ -35,6 +36,10 @@ def configure_logging()->None:
 def main():
     configure_logging()
     myMonitor = SampleMonitor()
+    # the backend pushes its state to the frontend (POST /api/state) every ACS_PUSH_INTERVAL seconds when ACS_FRONTEND_URL is set
+    frontend_url = os.environ.get("ACS_FRONTEND_URL", "")
+    if frontend_url:
+        StatePusher(myMonitor.get_state, frontend_url, float(os.environ.get("ACS_PUSH_INTERVAL", "3"))).start()
     Interface.registerMonitor(myMonitor)
 
     me = AppInfo()

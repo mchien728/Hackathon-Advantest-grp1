@@ -1,3 +1,13 @@
+# competition data (large, do not commit)
+/training/
+/SmarTest/training/
+/training.zip
+/Edge.zip
+/Smartest.zip
+*:Zone.Identifier
+__pycache__/
+
+# from main: log folders
 Edge/EdgeLog/logs/
 SmarTest/Util/logs/
 logs/

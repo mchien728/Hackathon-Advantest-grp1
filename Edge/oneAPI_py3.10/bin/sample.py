@@ -22,6 +22,8 @@ from oneapi import DFFData
 from oneapi import QueryResponse
 from oneapi import DFF
 from libACSAction import ActionManager
+from scenario1 import Scenario1
+from scenario2 import Scenario2
 
 # Define callback as a global function, don’t define an inner function.
 # def onUploadComplete(result, properties, data):
@@ -92,12 +94,52 @@ from libACSAction import ActionManager
 
 lastdata = ""
 
+DEBUG_EVENTS = os.environ.get("ACS_DEBUG_EVENTS") == "1"
+
+
 class SampleMonitor(Monitor):
     def __init__(self):
         Monitor.__init__(self)
         self.mTouchdownCnt = 0
         self.fileTransfer = FileTransfer.FileTransfer()
         self.sites =[]
+        self.s1 = Scenario1()
+        self.s2 = Scenario2()
+        self._pin_cache = {}
+        self._tp_testers = set()
+
+    def get_state(self):
+        state = self.s1.get_state()
+        try:
+            state.update(self.s2.state())
+        except Exception as e:
+            state.update({"predictions": [], "predictor_error": str(e)})
+        return state
+
+    def get_wafer(self, wafer_id=None):
+        return self.s1.get_wafer(wafer_id)
+
+    def _predict_message(self, data):
+        try:
+            return self.s2.predict(int(data), list(self.sites))["message"]
+        except Exception as e:
+            print(f"predict failed: {traceback.format_exc()}")
+            return f"prediction {data}: error {type(e).__name__}"[:200]
+
+    def _send_message(self, data_tester, msg):
+        # Actions are stored per tester name; the predict requests use a different name than the data events, so send to both.
+        for tester in dict.fromkeys([data_tester, *sorted(self._tp_testers)]):
+            try:
+                ok = ActionManager.set_message(tester, msg)
+            except Exception:
+                ok = traceback.format_exc()
+            print(f"set_message tester={tester} ok={ok} msg={msg}")
+
+    def _safe(self, fn, *args):
+        try:
+            return fn(*args)
+        except Exception:
+            print(f"scenario1 hook {getattr(fn, '__name__', fn)} failed: {traceback.format_exc()}")
 
     # derive callback func for NexusTPI::send
     def consumeTPSend(self, tc, data):
@@ -106,9 +148,10 @@ class SampleMonitor(Monitor):
         lastdata = data
     
     # derive callback func for NexusTPI::request
-    def consumeTPRequest(self, tc, request):        
-         
+    def consumeTPRequest(self, tc, request):
+
         print(f"Received request from {tc.testerId} {tc.testerIP}, command is {request}")
+        self._tp_testers.add(tc.testerId)
         jsonObj = json.loads(request)
         key  = jsonObj.get("key")
         data = jsonObj.get("data")        
@@ -122,17 +165,11 @@ class SampleMonitor(Monitor):
             timeout = int(data) + 1
             time.sleep(timeout)
         elif key=="predict":
-            wait=10
-            predict_num = data
-            #trigger to run prediction based on predict_num and get results of all sites
-            message=f'prediction {predict_num}:'
-            for site in self.sites:
-                #
-                value =25.22                
-                message +=f' ({site},{value})'
-            ActionManager.set_wait(tc.testerId,wait,message)  
-            response = ActionManager.get(tc.testerId)       
-            
+            wait=int(os.environ.get("ACS_PREDICT_WAIT", "10"))
+            message = self._predict_message(data)
+            ActionManager.set_wait(tc.testerId,wait,message)
+            response = ActionManager.get(tc.testerId)
+
         elif key == "prod_action":
             response = ActionManager.get_prod(tc.testerId)
             print(f"Get production Action: {response}")    
@@ -159,6 +196,7 @@ class SampleMonitor(Monitor):
     def consumeLotStart(self, data):
         print(sys._getframe().f_code.co_name)
         self.mTouchdownCnt = 0
+        self._safe(lambda: self.s1.lot_start(data.get_LotId()))
         print(f"get_Timezone = {data.get_Timezone()}")
         print(f"get_SetupTime = {data.get_SetupTime()}")
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
@@ -227,6 +265,7 @@ class SampleMonitor(Monitor):
 
     def consumeLotEnd(self, data):
         print(sys._getframe().f_code.co_name)
+        self._safe(self.s1.lot_end)
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_DisPositionCode = {data.get_DisPositionCode()}")
         print(f"get_UserDescription = {data.get_UserDescription()}")
@@ -235,6 +274,7 @@ class SampleMonitor(Monitor):
     def consumeWaferStart(self, data):
         print(sys._getframe().f_code.co_name)
         self.mTouchdownCnt = 0
+        self._safe(lambda: self.s1.wafer_start(data.get_WaferId()))
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_WaferSize = {data.get_WaferSize()}")
         print(f"get_DieHeight = {data.get_DieHeight()}")
@@ -251,6 +291,7 @@ class SampleMonitor(Monitor):
 
     def consumeWaferEnd(self, data):
         print(sys._getframe().f_code.co_name)
+        self._safe(self.s1.wafer_end)
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_HeadNumber = {data.get_HeadNumber()}")
         print(f"get_SiteGroupNumber = {data.get_SiteGroupNumber()}")
@@ -268,6 +309,8 @@ class SampleMonitor(Monitor):
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         cnt = data.get_ResultCount()
         print(f"get_ResultCount = {cnt}")
+        self._safe(lambda: self.s1.test_start([{"site": toSite(data.query_HeadSite(i)), "x": data.query_XCoord(i), "y": data.query_YCoord(i)} for i in range(cnt)]))
+        self._safe(lambda: self.s2.test_start(self.s1.td))
         for index in range(0, cnt):
             tempU32 = data.query_HeadSite(index)
             ### Get Active Site Number
@@ -281,6 +324,10 @@ class SampleMonitor(Monitor):
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         cnt = data.get_ResultCount()
         print(f"get_ResultCount = {cnt}")
+        # SBin 1 is the pass bin in DefineBins.java
+        self._safe(lambda: self.s1.test_end([{"site": toSite(data.query_HeadSite(i)), "x": data.query_XCoord(i), "y": data.query_YCoord(i),
+                                              "part_id": data.query_PartId(i), "sbin": data.query_SBinResult(i),
+                                              "passed": data.query_SBinResult(i) == 1} for i in range(cnt)]))
         for index in range(0, cnt):
             tempU32 = data.query_HeadSite(index)
             print(f"Head = {toHead(tempU32)} Site = {toSite(tempU32)}")
@@ -294,14 +341,16 @@ class SampleMonitor(Monitor):
             print(f"query_PartId = {data.query_PartId(index)}")
             print(f"query_PartText = {data.query_PartText(index)}")
 
-        
-
     def consumeTestFlowStart(self, data):
+        if not DEBUG_EVENTS:
+            return
         print(sys._getframe().f_code.co_name)
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_TestFlowName = {data.get_TestFlowName()}")
 
     def consumeTestFlowEnd(self, data):
+        if not DEBUG_EVENTS:
+            return
         print(sys._getframe().f_code.co_name)
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_TestFlowName = {data.get_TestFlowName()}")
@@ -352,7 +401,34 @@ class SampleMonitor(Monitor):
             print(f"query_TestSuite = {data.query_TestSuite(index)}")
             print(f"query_MeasurementName = {data.query_MeasurementName(index)}")
 
+    def _pin_names(self, data, index, suite, n_results):
+        # Pin names match the training column names; the test text does not always (Suite3, Suite14).
+        try:
+            cache_key = (suite, data.query_TestNumber(index), n_results)
+            if cache_key not in self._pin_cache:
+                names = [data.query_PinName(pin) for pin in data.query_PinResults(index)]
+                self._pin_cache[cache_key] = names if len(names) == n_results and all(names) else None
+            return self._pin_cache[cache_key]
+        except Exception:
+            return None
+
     def consumeMultiParametric(self, data):
+        for index in range(data.get_ResultCount()):
+            try:
+                results = data.query_Results(index)
+                if results:
+                    suite, site = data.query_TestSuite(index), toSite(data.query_HeadSite(index))
+                    pins = self._pin_names(data, index, suite, len(results))
+                    labels = pins if pins else [data.query_TestText(index)]
+                    for label, value in zip(labels, results):
+                        self.s1.measurement(suite, label, site, value)
+                        self.s2.observe(suite, label, site, value)
+            except Exception:
+                print(f"scenario measurement failed: {traceback.format_exc()}")
+        if DEBUG_EVENTS:
+            self._dump_multi_parametric(data)
+
+    def _dump_multi_parametric(self, data):
         print(sys._getframe().f_code.co_name)
         cnt = data.get_ResultCount()
         print(f"get_ResultCount = {cnt}")
@@ -441,6 +517,8 @@ class SampleMonitor(Monitor):
     
 
     def consumeMeasurementData(self, data):
+        if not DEBUG_EVENTS:
+            return
         print(sys._getframe().f_code.co_name)
         print(f"get_MeasurementName = {data.get_MeasurementName()}")
 
@@ -468,18 +546,23 @@ class SampleMonitor(Monitor):
                 print(f"query_SequenceGroupSites = {data.query_SequenceGroupSites(groupID)}")
     
     def consumeTestSuiteStart(self, data):
+        if not DEBUG_EVENTS:
+            return
         print(sys._getframe().f_code.co_name)
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_TestSuite = {data.get_TestSuite()}")
 
     def consumeTestSuiteEnd(self, data):
+        if not DEBUG_EVENTS:
+            return
         print(sys._getframe().f_code.co_name)
         print(f"get_TimeStamp = {data.get_TimeStamp()}")
         print(f"get_TestSuite = {data.get_TestSuite()}")
         print(f"get_ReleaseTesterTimeStamp = {data.get_ReleaseTesterTimeStamp()}")
 
     def consumeData(self, tc, data):
-        print(f"====== consume data from: testerId = {tc.testerId} =======")
+        if DEBUG_EVENTS:
+            print(f"====== consume data from: testerId = {tc.testerId} =======")
         datatype = data.getType()
         if datatype == DataType.DATA_TYP_PRODUCTION_LOTSTART:
             self.consumeLotStart(data)
@@ -493,11 +576,6 @@ class SampleMonitor(Monitor):
             self.consumeTestStart(data)
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTEND:
             self.consumeTestEnd(data)
-            
-            if self.mTouchdownCnt %3 ==0:
-                ActionManager.set_message(tc.testerId,f'TD {self.mTouchdownCnt} Site 1 Abnormal Happen')            
-        
-        
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTFLOWSTART:
             self.consumeTestFlowStart(data)
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTFLOWEND:
@@ -522,6 +600,9 @@ class SampleMonitor(Monitor):
             self.consumeTestSuiteStart(data)
         elif datatype == DataType.DATA_TYP_PRODUCTION_TESTSUITEEND:
             self.consumeTestSuiteEnd(data)
+        msg = self.s1.pop_message()
+        if msg:
+            self._send_message(tc.testerId, msg)
 
     def download_from_sftp(self, local_path, remote_file_name):
         try:
