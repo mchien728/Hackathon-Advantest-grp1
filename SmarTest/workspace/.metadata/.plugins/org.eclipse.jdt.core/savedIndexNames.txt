@@ -1,34 +1,3 @@
-INDEX VERSION 1.134+/home/user/Case_Event/SmarTest/workspace/.metadata/.plugins/org.eclipse.jdt.core
-2268467647.index
-1525990134.index
-4237398546.index
-2649585236.index
-317686159.index
-4253237904.index
-3049342258.index
-3616585025.index
-1072930601.index
-3572718845.index
-3309645185.index
-927404371.index
-769196688.index
-4204486574.index
-1675579086.index
-3995470963.index
-4135356823.index
-3835803593.index
-3757804781.index
-3989912989.index
-2739560323.index
-1865797976.index
-3237063747.index
-2901986343.index
-2796734579.index
-3612895024.index
-160660430.index
-3278855365.index
-1477158951.index
-4292839837.index
-2435793238.index
-1516641559.index
-2540217202.index
+version https://git-lfs.github.com/spec/v1
+oid sha256:e80f383a3f7ee6e87b48fe520a75f8743cec8e5fe0bcbe85d2c2acf24b1bc80b
+size 658

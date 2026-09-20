@@ -4,7 +4,7 @@
   <Smartest forceRestart="false" version="soc64_8.7.0.0">
     <ModelFile>./env/model_Smt8</ModelFile>
     <StartMode>OFFLINE</StartMode>
-    <ShowSWC>false</ShowSWC>
+    <ShowSWC>true</ShowSWC>
     <Assignment>
       <!-- Specify environment variables for SmarTest -->
       <Set name="ENV.ST_STARTTIME" value="${ENV.TIMESTAMP}" />
@@ -32,7 +32,7 @@
    </EquipmentControl>
 <!-- /* _stop_topic_255325_s1 */ -->
 
-   <TestProgram action="RUN" name="Case_Smt870/src/TestCase1/TestCase1_8site_cp.prog" workspace="/home/vincent/workspace_8.7.0" lotType="WAFER_TEST" forceActivate="true"/>
+   <TestProgram action="RUN" name="TestCase_Smt870/src/TestCase1/TestCase1_4site_cp.prog" workspace="../workspace" lotType="WAFER_TEST" forceActivate="true"/>
 
    <LibraryCall function="LibACS.acs_image_check"/>
 
@@ -85,13 +85,13 @@
         <LoopCount>-1</LoopCount>
         <Assignment>
           <Increment name="TDNum" value="1"/>
-        </Assignment>      
-
+        </Assignment> 
+        <LibraryCall function="LibACS.acs_sot"/>     
         <EquipmentControl function="LOAD_DEVICE" />
         <LibraryCall function="PartIDLib.autoIncrementPartID"/>
         <Testflow action="ExecuteMainflow"/>
         <EquipmentControl function="BIN_DEVICE" />
-	     
+        <LibraryCall function="LibACS.acs_postbin"/>
        </Level>          
       
       <EquipmentControl function="UNLOAD_WAFER" />

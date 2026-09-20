@@ -1,6 +1,6 @@
 {
   "path_log" : "/tmp/acs_tcct",
-  "MessUtil" : "MessUI/MessUI",
+  "MessUtil" : "util/MessUI",
   "OutputUI" : 1,
   "loglevel" : "debug",
   "app_deploy":"/opt/acs/nexus/bin/AppDeployer",

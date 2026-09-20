@@ -1,32 +1,3 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<launchConfiguration type="com.advantest.itee.contextdebugger.core.testProgramDebugConfigType">
-    <booleanAttribute key="changeDutManually" value="false"/>
-    <stringAttribute key="disableSitesValue" value=""/>
-    <stringAttribute key="enableSitesValue" value=""/>
-    <booleanAttribute key="isDsagenChangeDetectionEnabled" value="false"/>
-    <booleanAttribute key="isExecutionProfilingEnabled" value="false"/>
-    <booleanAttribute key="isLicenseLoggingEnabled" value="false"/>
-    <booleanAttribute key="isOnlineResultLoggingEnabled" value="false"/>
-    <booleanAttribute key="isPerfDataLoggingEnabled" value="false"/>
-    <booleanAttribute key="isReleaseTesterDisabled" value="false"/>
-    <booleanAttribute key="isRepeatEnabled" value="false"/>
-    <booleanAttribute key="isRepeatWaitTimeEnabled" value="false"/>
-    <booleanAttribute key="isSetupGenerationDisabled" value="false"/>
-    <booleanAttribute key="isSetupLoggingEnabled" value="false"/>
-    <booleanAttribute key="isStateLoggingEnabled" value="false"/>
-    <stringAttribute key="onlineResultLoggingDirectory" value=""/>
-    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
-        <listEntry value="/TestCase_Smt870/src/TestCase1/TestCase1_4site_ft.prog"/>
-    </listAttribute>
-    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
-        <listEntry value="1"/>
-    </listAttribute>
-    <booleanAttribute key="org.eclipse.debug.ui.ATTR_LAUNCH_IN_BACKGROUND" value="false"/>
-    <stringAttribute key="org.eclipse.jdt.launching.CLASSPATH_PROVIDER" value="com.advantest.itee.contextdebugger.core.jtmclasspathprovider"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="TestCase_Smt870"/>
-    <stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="com.advantest.itee.contextdebugger.core.jtmsourcepathprovider"/>
-    <intAttribute key="repeatCount" value="1"/>
-    <stringAttribute key="repeatWaitTime" value=""/>
-    <stringAttribute key="siteType" value="sitesFromTestprogram"/>
-    <booleanAttribute key="usingFullActivationInExport" value="false"/>
-</launchConfiguration>
+version https://git-lfs.github.com/spec/v1
+oid sha256:cec825014437e6cc3310a4a3e8d544284a1b531ed38bbe04ff231a5b779788cd
+size 2180

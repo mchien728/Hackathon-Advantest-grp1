@@ -6,3 +6,8 @@
 /Smartest.zip
 *:Zone.Identifier
 __pycache__/
+
+# from main: log folders
+Edge/EdgeLog/logs/
+SmarTest/Util/logs/
+logs/
