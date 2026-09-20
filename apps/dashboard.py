@@ -9,12 +9,9 @@ from send_mail import send_dashboard_email
 state_data = {}
 last_error_type = None
 user_email = None
-<<<<<<< HEAD
-=======
 
 def get_state():
     return state_data
->>>>>>> fdaa46f (Update dashboard frontend)
 
 def create_app():
     app = Flask(__name__)
@@ -42,9 +39,9 @@ def create_app():
                 if "label" in state_data:
                     label = state_data["label"]
                     if label != "Normal" and label != last_error_type:
-                        last_error_type = label
                         if user_email:
                             send_dashboard_email(state_data, user_email)
+                    last_error_type = label
                 return state_data, 200
             except Exception as e:
                 logging.exception("Failed to get dashboard state")
