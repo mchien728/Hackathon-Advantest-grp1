@@ -791,7 +791,6 @@ body {
     background: white;
     border-radius: 12px;
     padding: 22px;
-    margin-bottom: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -1189,12 +1188,6 @@ body {
     min-width: 0;
 }
 
-@media (max-width: 900px) {
-    .analysis-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
 .timeline-dot.status-passed {
     background: var(--pass-light);
     color: var(--pass-dark);
@@ -1251,15 +1244,17 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-left: auto;
 }
 
 .email-input {
-    width: 220px;
+    width: clamp(140px, 20vw, 220px);
     padding: 9px 12px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
     font-size: var(--font-sm);
     outline: none;
+    box-sizing: border-box;
 }
 
 .email-input:focus {
@@ -1321,4 +1316,19 @@ body {
 .temperature-site strong {
     font-size: var(--font-md);
     color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+    .summary-grid,
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .email-setting {
+        flex-wrap: wrap;
+    }
+
+    .email-input {
+        flex-wrap: wrap;
+    }
 }
