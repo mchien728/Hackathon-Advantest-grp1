@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+    <!-- Header -->
+    <div style="background-color: #1f2937; color: white; padding: 15px 30px;">
+        <h1 style="margin: 0; font-size: 20px;">Advantest AI Production Monitor</h1>
+    </div>
+
+    <div style="max-width: 1000px; margin: 20px auto; padding: 0 20px;">
+
+        <!-- Alert Banner -->
+        {% if label.lower() != "normal" %}
+        <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
+            <h2 style="margin: 0 0 5px 0; color: #111827; font-size: 18px;">
+                <span style="color: #dc2626;">!</span> Attention Needed
+            </h2>
+            <p style="margin: 0; color: #4b5563; font-size: 14px;">{{ label }} detected on this wafer.</p>
+        </div>
+        {% else %}
+        <div style="background-color: #f0fdf4; border-left: 4px solid #166534; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
+            <h2 style="margin: 0 0 5px 0; color: #111827; font-size: 18px;">
+                <span style="color: #166534;">✓</span> System Normal
+            </h2>
+            <p style="margin: 0; color: #4b5563; font-size: 14px;">No anomalies detected on this wafer.</p>
+        </div>
+        {% endif %}
+
+        <!-- Content Grid (Wafer Map & Temperature) -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+            <tr>
+                <!-- Wafer Map Card -->
+                <td width="60%" valign="top">
+                    <div style="background: white; border-radius: 8px; padding: 25px; border: 1px solid #e5e7eb;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 18px; color: #111827;">Wafer Map</h3>
+                        <div style="color: #6b7280; font-size: 12px; margin-bottom: 20px;">
+                            Wafer: {{ wafer }} &nbsp;|&nbsp; Current: TD {{ touchdown }}
+                        </div>
+
+                        <table align="center" cellpadding="0" cellspacing="3">
+                            {% for row in wafer_grid %}
+                            <tr>
+                                {% for cell_color in row %}
+                                    {% if cell_color %}
+                                        <td width="20" height="20" style="background-color: {{ cell_color }}; border-radius: 3px;"></td>
+                                    {% else %}
+                                        <td width="20" height="20"></td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </table>
+
+                        <!-- Legend -->
+                        <div style="text-align: center; margin-top: 25px; font-size: 12px; color: #4b5563;">
+                            <span style="display: inline-block; width: 12px; height: 12px; background-color: #22c55e; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span> Pass &nbsp;&nbsp;
+                            <span style="display: inline-block; width: 12px; height: 12px; background-color: #ef4444; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span> Fail &nbsp;&nbsp;
+                            <span style="display: inline-block; width: 12px; height: 12px; background-color: #f59e0b; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span> Suspect &nbsp;&nbsp;
+                            <span style="display: inline-block; width: 12px; height: 12px; background-color: #e5e7eb; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span> Not tested
+                        </div>
+                    </div>
+                </td>
+
+                <td width="2%"></td> <!-- Spacer -->
+
+                <!-- Temperature Card -->
+                <td width="38%" valign="top">
+                    <div style="background: white; border-radius: 8px; padding: 25px; border: 1px solid #e5e7eb; height: 100%;">
+                        <h3 style="margin: 0 0 40px 0; font-size: 18px; color: #111827;">IC Temperature Prediction</h3>
+                        <div style="text-align: center; margin-top: 40px;">
+                            <div style="font-size: 52px; font-weight: bold; color: #111827; margin-bottom: 10px;">
+                                {{ temperature }} °C
+                            </div>
+                            <div style="color: #9ca3af; font-size: 13px;">Waiting for prediction...</div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Anomaly Report -->
+        <div style="background: white; border-radius: 8px; padding: 25px; border: 1px solid #e5e7eb; margin-bottom: 40px;">
+            <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #111827;">Anomaly Report</h3>
+
+            {% for item in triggered %}
+            <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 6px; padding: 20px; margin-bottom: 15px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td width="30" valign="top">
+                            <div style="background-color: #dc2626; color: white; width: 24px; height: 24px; border-radius: 12px; text-align: center; line-height: 24px; font-weight: bold; font-size: 14px;">!</div>
+                        </td>
+                        <td>
+                            <strong style="color: #111827; font-size: 16px;">{{ item.name }}</strong>
+                            <p style="color: #4b5563; font-size: 14px; margin: 5px 0 10px 0;">The detector identified an abnormal production pattern.</p>
+
+                            <div style="color: #6b7280; font-size: 13px; margin-bottom: 15px;">
+                                First detected: <span style="color: #dc2626; font-weight: bold;">Detected from Touchdown {{ item.detail.onset_td | default('-') }}</span>
+                            </div>
+
+                            <div style="background-color: white; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; font-size: 13px; color: #4b5563;">
+                                <strong style="color: #111827; display: block; margin-bottom: 5px;">Technical Details ({{ item.detail.group | default('-') }})</strong>
+                                <span style="color: #9ca3af;">Value:</span> {{ item.value }} &nbsp;|&nbsp;
+                                <span style="color: #9ca3af;">Threshold:</span> {{ item.threshold }} &nbsp;|&nbsp;
+                                <span style="color: #9ca3af;">Direction:</span> {{ item.detail.direction | default('-') }}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            {% else %}
+            <div style="padding: 20px; text-align: center; color: #9ca3af;">
+                No alerts detected.
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+</body>
+</html>

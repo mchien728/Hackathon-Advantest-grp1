@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Advantest Real-Time Monitor</title>
+    <link rel=stylesheet type="text/css" href="{{url_for('static', filename='css/style.css')}}">
+</head>
+
+<body>
+
+    <div id="warning" class="warning"></div>
+
+    <div id="header" class="header">
+
+        <div class="title-row">
+            <div class="title">
+                Advantest AI Production Monitor
+            </div>
+            <!--
+            <div class="live">
+                ● LIVE
+            </div>
+            -->
+        </div>
+
+        <div class="status-grid">
+
+            <div class="status-card">
+                <div class="label">LOT</div>
+                <div id="lot" class="value">-</div>
+            </div>
+
+            <div class="status-card">
+                <div class="label">WAFER</div>
+                <div id="wafer" class="value">-</div>
+            </div>
+
+            <div class="status-card">
+                <div class="label">TOUCHDOWN</div>
+                <div id="touchdown" class="value">0</div>
+            </div>
+
+            <div class="status-card">
+                <div class="label">ANOMALY TOUCHDOWNS</div>
+                <div id="anomaly-count" class="value">0</div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <main class="dashboard">
+
+        <!-- Wafer Overview -->
+        <div id="overview-view">
+            <section class="wafer-overview-panel">
+                <div class="wafer-overview-header">
+                    <h2>Wafer Overview</h2>
+
+                    <div class="wafer-overview-actions">
+                        <div class="email-setting">
+                            <input id="notification-email" class="email-input" type="email" placeholder="Notification email">
+                            <button id="save-email" class="save-email-btn">Save Email</button>
+                            <span id="email-status" class="email-status"></span>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="wafer-overview-table">
+                    <div class="wafer-overview-table-header">
+                        <span>Wafer</span>
+                        <span>Status</span>
+                        <span>Detection</span>
+                        <span>Yield</span>
+                        <span>Onset</span>
+                        <span></span>
+                    </div>
+
+                    <div id="wafer-overview-list"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Wafer Detail -->
+        <div id="detail-view" style="display: none;">
+            <div class="detail-navigation">
+                <button id="back-to-overview" class="back-overview-btn">← Back to Wafer Overview</button>
+                <span id="viewing-indicator"></span>
+            </div>
+
+        <!-- Top summary -->
+        <section class="summary-grid">
+            <!-- Overall Status -->
+            <section id="overall-status" class="overall-status normal">
+                <div class="status-content">
+                    <div class="status-label">WAFER</div>
+
+                    <div id="status-wafer" class="status-wafer">
+                        -
+                    </div>
+
+                    <div class="status-message">
+                        <div id="status-title" class="status-title">
+                            No Attention Needed
+                        </div>
+
+                        <div id="status-description" class="status-description">
+                            No anomalies detected on this wafer.
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="criteria-panel">
+                <div class="criteria-header">
+                    <h2>Detection Criteria</h2>
+                </div>
+
+                <div id="criteria-list" class="criteria-list">
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Mean Trend</div>
+                            </div>
+
+                            <div class="criteria-bar">
+                                <div id="criteria-mean-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-mean-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
+                            </div>
+
+                            <div class="criteria-result">
+                                <span id="criteria-mean-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-mean-threshold">-</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Site Unbalance</div>
+                            </div>
+
+                            <div class="criteria-bar">
+                                <div id="criteria-site-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-site-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
+                            </div>
+
+                            <div class="criteria-result">
+                                <span id="criteria-site-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-site-threshold">-</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Stdev Trend</div>
+                            </div>
+
+                            <div class="criteria-bar">
+                                <div id="criteria-stdev-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-stdev-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
+                            </div>
+
+                            <div class="criteria-result">
+                                <span id="criteria-stdev-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-stdev-threshold">-</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="criteria-item">
+                        <div class="criteria-info">
+                            <div class="criteria-title">
+                                <div class="criteria-name">Yield</div>
+                            </div>
+
+                            <div class="criteria-bar">
+                                <div id="criteria-yield-bar" class="criteria-bar-fill"></div>
+                                <div id="criteria-yield-over" class="criteria-bar-over"></div>
+                                <div class="criteria-threshold-line">
+                                    <span class="criteria-threshold-label">Threshold</span>
+                                </div>
+                            </div>
+
+                            <div class="criteria-result">
+                                <span id="criteria-yield-value">-</span>
+                                <span class="criteria-threshold">
+                                    / Threshold <span id="criteria-yield-threshold">-</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        
+        <!-- Wafer Map -->
+        <section class="main-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Wafer Map</h2>
+                    </div>
+                </div>
+                <div class="touchdown-timeline">
+                    <div class="timeline-header">
+                        <span>Test Progress</span>
+                        <span id="timeline-current">-</span>
+                    </div>
+                    <div id="timeline-track" class="timeline-track">
+                        <div class="timeline-empty">
+                            Waiting for test progress...
+                        </div>
+                    </div>
+                </div>
+                <div class="site-selector">
+                    <div class="site-header">
+                        Test Sites
+                    </div>
+                    <div class="site-list">
+                        <div class="site-item" data-site="1">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 1</div>
+                        </div>
+
+                        <div class="site-item" data-site="2">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 2</div>
+                        </div>
+
+                        <div class="site-item" data-site="3">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 3</div>
+                        </div>
+
+                        <div class="site-item" data-site="4">
+                            <div class="probe-head"></div>
+                            <div class="probe-needle"></div>
+                            <div class="site-label">Site 4</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="wafer-map" class="wafer-map">
+                    <div class="empty-state">
+                        Waiting for wafer data...
+                    </div>
+                </div>
+
+                <div class="legend">
+                    <span><i class="legend-normal"></i> Pass</span>
+                    <span><i class="legend-related"></i> Suspect</span>
+                    <span><i class="legend-alert"></i> Fail</span>
+                    <span><i class="legend-untested"></i> Not tested</span>
+                </div>
+            </div>
+        </section>
+
+
+        <div class="analysis-grid">
+            <!-- Temperature -->
+            <div class="panel temperature-panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>IC Temperature Prediction</h2>
+                    </div>
+                </div>
+
+                <div class="temperature-content">
+
+                    <div class="temperature-main">
+                        <div id="temperature-value" class="temperature-value">
+                            -- °C
+                        </div>
+
+                        <div class="temperature-average-label">
+                            Average
+                        </div>
+                    </div>
+
+                    <div class="temperature-sites">
+
+                        <div class="temperature-site">
+                            <span>Site 1</span>
+                            <strong id="temperature-site-1">-- °C</strong>
+                        </div>
+
+                        <div class="temperature-site">
+                            <span>Site 2</span>
+                            <strong id="temperature-site-2">-- °C</strong>
+                        </div>
+
+                        <div class="temperature-site">
+                            <span>Site 3</span>
+                            <strong id="temperature-site-3">-- °C</strong>
+                        </div>
+
+                        <div class="temperature-site">
+                            <span>Site 4</span>
+                            <strong id="temperature-site-4">-- °C</strong>
+                        </div>
+
+                    </div>
+
+                    <div id="temperature-status" class="temperature-status">
+                        Waiting for prediction...
+                    </div>
+
+                </div>
+            </div>
+        
+
+            <section class="heatmap-panel">
+                <div class="heatmap-header">
+                    <h2>TD × Site Heatmap</h2>
+
+                    <div class="heatmap-legend">
+                        <span><i class="passed"></i>Pass</span>
+                        <span><i class="suspect"></i>Suspect</span>
+                        <span><i class="failed"></i>Fail</span>
+                    </div>
+                </div>
+
+                <div class="heatmap-content">
+                    <div class="heatmap-grid" id="td-site-heatmap"></div>
+                </div>
+            </section>
+        </div>
+
+
+        <section class="report-panel">
+
+            <div class="report-header">
+                <div>
+                    <h2>Anomaly Report</h2>
+                </div>
+            </div>
+
+            <div id="report-normal" class="report-normal">
+                No anomalies detected.
+            </div>
+
+            <div id="report-anomaly" class="report-anomaly">
+
+                <div class="report-icon">!</div>
+
+                <div class="report-content">
+
+                    <div id="report-title" class="report-title">
+                        Unusual measurement pattern detected
+                    </div>
+
+                    <div id="report-description" class="report-description">
+                        Recent measurements differ from the normal production pattern.
+                    </div>
+
+                    <div class="affected-area">
+                        <span class="affected-label">First detected</span>
+                        <strong id="affected-sites">-</strong>
+                    </div>
+
+                    <details class="technical-details">
+
+                        <summary>View technical details</summary>
+
+                        <div class="technical-summary">
+                            <span>
+                                Touchdown <strong id="detail-touchdown">-</strong>
+                            </span>
+
+                            <span>
+                                <strong id="detail-alert-count">0</strong> alerts detected
+                            </span>
+                        </div>
+
+                        <div id="alert-list" class="alert-list"></div>
+
+                    </details>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <div class="site-section">
+        <h2>Site Status</h2>
+
+        <div class="site-grid">
+            <div id="site-1" class="site-card">
+                <div class="site-title">Site 1</div>
+                <div class="site-status">Normal</div>
+            </div>
+
+            <div id="site-2" class="site-card">
+                <div class="site-title">Site 2</div>
+                <div class="site-status">Normal</div>
+            </div>
+
+            <div id="site-3" class="site-card">
+                <div class="site-title">Site 3</div>
+                <div class="site-status">Normal</div>
+            </div>
+
+            <div id="site-4" class="site-card">
+                <div class="site-title">Site 4</div>
+                <div class="site-status">Normal</div>
+            </div>
+        </div>
+    </div>
+
+        </div>
+
+    </main>
+
+
+
+
+
+    <div id="error" class="error"></div>
+
+    <button id="ai-button" class="ai-button">
+        AI
+    </button>
+
+    <div id="ai-box" class="ai-box">
+
+        <div class="ai-header">
+            <div class="ai-header-title">
+                AI Assistant
+            </div>
+
+            <button id="ai-close" class="ai-close">
+                ×
+            </button>
+        </div>
+
+        <div id="ai-messages" class="ai-messages">
+
+            <div class="ai-message assistant">
+                Hi! I can help explain the current wafer and anomaly results.
+            </div>
+
+        </div>
+
+        <div class="ai-suggestions">
+
+            <button class="ai-suggestion">
+                What happened?
+            </button>
+
+            <button class="ai-suggestion">
+                Why was it flagged?
+            </button>
+
+            <button class="ai-suggestion">
+                When did it start?
+            </button>
+
+            <button class="ai-suggestion">
+                Explain simply
+            </button>
+
+        </div>
+
+        <div class="ai-input-area">
+            <input
+                id="ai-input"
+                class="ai-input"
+                type="text"
+                placeholder="Ask about this wafer..."
+            >
+
+            <button id="ai-send" class="ai-send">
+                Send
+            </button>
+        </div>
+    </div>
+<script src="{{url_for('static', filename='js/script.js')}}"></script>
+</body>
+</html>
